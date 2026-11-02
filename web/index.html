@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#15152d">
+  <title>뽀짝 우주 대탈출</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="shell">
+  <header>
+    <a class="brand" href="./">뽀짝<span>↗&#xFE0E;</span> <small>우주 대탈출</small></a>
+    <button id="hangar-open" class="icon shop-open">상점</button>
+    <button id="haptic" class="icon" hidden>진동 ON</button>
+    <button id="sound" class="icon" aria-label="효과음과 음악 켜기">음소거</button>
+  </header>
+
+  <section class="game menu" id="stage">
+    <canvas id="game" aria-label="상하좌우로 드래그하여 외계인과 운석을 피하고 탭으로 위장하는 우주선 게임"></canvas>
+
+    <div class="hud">
+      <div><small>SCORE</small><strong id="score">0000</strong></div>
+      <button id="pause" class="icon" aria-label="일시정지" hidden>Ⅱ</button>
+      <div class="best"><small>BEST</small><strong id="best">0000</strong></div>
+    </div>
+
+    <div id="alien-panel" class="alien-panel" hidden>
+      <div><span id="taste">? 미확인 방문자</span><span id="pursuit">둘러보는 중</span></div>
+      <div id="chase-meter" class="chase-meter" role="progressbar" aria-label="외계인 포획 위험" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"><div id="chase-fill"></div></div>
+    </div>
+    <div id="boss-bar" class="boss-bar" hidden><div><span id="boss-name"></span><span id="boss-time"></span></div><div class="boss-hp"><div id="boss-fill"></div></div></div>
+    <div id="notice" class="notice" role="status" aria-live="polite"></div>
+    <div id="scene-caption" class="scene-caption" hidden></div>
+    <div id="splash" class="splash" role="status" aria-live="assertive" hidden></div>
+    <div id="coach" class="coach" role="status" aria-live="polite" hidden></div>
+
+    <div id="panel" class="overlay">
+      <div class="eyebrow">귀여우면 잡혀가는 슈팅 게임</div>
+      <h1 class="title-ko">뽀짝<br><span>우주 대탈출</span><img id="mascot" class="rocket-mascot" alt="" aria-hidden="true"></h1>
+      <p id="message">외계인은 귀여운 것부터 데려간대요.<br>…일단 출발할까요?</p>
+      <div id="result" hidden></div>
+      <div id="next-goal" class="next-goal" hidden></div>
+      <div id="run-stats" class="run-stats" hidden></div>
+      <button id="share" class="share-button" hidden>카톡으로 자랑하기</button>
+      <div id="goal" class="goal"></div>
+      <button id="start" class="primary">출발하기 <span>↗&#xFE0E;</span></button>
+      <button id="course-start" class="course-button">오늘의 코스 <small id="course-best">모두 같은 배치</small></button>
+      <div id="daily" class="daily"></div>
+      <div class="panel-links"><button id="book-open" class="book-open">발견 도감 ↗&#xFE0E;</button><button id="journey-open" class="book-open">여정 · 지도 ↗&#xFE0E;</button><button id="tutorial-open" class="book-open">연습 비행 ↗&#xFE0E;</button></div>
+      <div class="hint">상하좌우 드래그 · 탭으로 위장<br><small>PC: 방향키 / WASD 이동 · Space / M 위장 · Esc 일시정지</small></div>
+      <div id="debug" class="debug" hidden></div>
+    </div>
+
+    <div id="play-tools" class="play-tools" hidden>
+      <div><span id="status"></span><small id="effects"></small></div>
+      <div class="tool-buttons"><div id="hyper-gauge" class="hyper-gauge" role="progressbar" aria-label="하이퍼 게이지" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><small>⚡</small><span><span id="hyper-fill"></span></span></div><button id="mask" class="mask-button" disabled>위장 ×1</button></div>
+    </div>
+    <div class="bottom"><span class="trip-wrap"><i></i> <b id="level">네온 성운</b> <span class="trip"><span id="trip-fill"></span></span><span id="trip-goal" class="trip-goal"></span></span><span id="time">00:00</span></div>
+
+    <section id="item-book" class="item-book" role="dialog" aria-modal="true" aria-labelledby="book-title" hidden>
+      <div class="book-head"><h2 id="book-title">발견 도감</h2><button id="book-close" class="icon close" aria-label="닫기">✕</button></div>
+      <p class="book-rule">처음 보는 물건은 아직 알 수 없어요.<br>직접 먹고 만난 반응이 여기에 남아요.</p>
+      <h3 data-h="{paw} 동물 취향" data-s="01–03"></h3><div id="book-animal" class="book-row"></div>
+      <h3 data-h="{sparkle} 반짝이 취향" data-s="04–06"></h3><div id="book-shiny" class="book-row"></div>
+      <h3 data-h="{swirl} 독특한 취향" data-s="07–09"></h3><div id="book-odd" class="book-row"></div>
+      <div id="book-supply" class="book-supply"></div>
+      <h3 class="pink" data-h="{antenna} 전리품" data-s="격추해야만 얻어요"></h3><div id="book-trophy" class="book-row trophy-row"></div>
+      <p class="book-rule">♥ 표시가 있다면, 직접 본 외계인의 반응이에요.</p>
+    </section>
+
+    <section id="share-panel" class="share-panel" role="dialog" aria-modal="true" aria-labelledby="share-title" hidden>
+      <div class="book-head"><h2 id="share-title">카톡으로 자랑하기</h2><button id="share-close" class="icon">닫기 ×</button></div>
+      <p class="book-rule">이 메시지를 채팅방에 보내면, 친구가 링크를 눌렀을 때 아래 카드가 바로 열리고 같은 기록에 도전할 수 있어요.</p>
+      <pre id="share-preview" class="share-preview"></pre>
+      <button id="share-app" class="share-button" hidden>카톡·앱으로 보내기</button>
+      <button id="share-copy" class="share-button">메시지 복사 → 카톡에 붙여 넣기</button>
+      <h3>친구가 보게 될 카드</h3>
+      <img id="share-card" class="share-card" alt="친구가 링크를 누르면 보게 될 결과 카드">
+    </section>
+
+    <section id="challenge" class="share-panel" role="dialog" aria-modal="true" aria-labelledby="challenge-title" hidden>
+      <div class="book-head"><h2 id="challenge-title">친구의 기록</h2><button id="challenge-close" class="icon">닫기 ×</button></div>
+      <p id="challenge-text" class="book-rule"></p>
+      <img id="challenge-card" class="share-card" alt="친구가 보낸 결과 카드">
+      <button id="challenge-go" class="primary">이 기록 깨기 <span>↗&#xFE0E;</span></button>
+    </section>
+
+    <section id="journey" class="item-book" role="dialog" aria-modal="true" aria-labelledby="journey-title" hidden>
+      <div class="book-head"><h2 id="journey-title">여정 지도</h2><button id="journey-close" class="icon close" aria-label="닫기">✕</button></div>
+      <p class="book-rule">행성 끝에는 모선이 기다려요. 모선을 격퇴하면 갇힌 친구를 구해요.</p>
+      <h3 data-h="{rocket} 행성 지도" data-s="끝에서 모선이 기다려요"></h3><div id="journey-planets" class="jr-planets"></div>
+      <h3 class="pink" data-h="{f_bunny} 구한 친구" data-s="구출 기록"></h3><div id="journey-friends" class="book-row friend-row"></div>
+      <h3 class="gold" data-h="{core} 현상수배" data-s="모선을 잡으면 체포 도장"></h3><div id="journey-wanted" class="wanted-row"></div>
+      <p class="book-rule">친구가 늘수록 기체가 귀여워져서… UFO가 더 자주 노려요.</p>
+    </section>
+
+    <section id="hangar" class="hangar" role="dialog" aria-modal="true" aria-labelledby="hangar-title" hidden>
+      <div class="book-head"><h2 id="hangar-title">상점</h2><button id="hangar-close" class="icon close" aria-label="닫기">✕</button></div>
+      <div class="hangar-wallet"><small>내 별조각</small><b id="hangar-stars">★ 0</b><span id="hangar-msg" class="hangar-msg" role="status" aria-live="polite"></span></div>
+      <div class="hangar-stage">
+        <canvas id="hangar-preview" aria-label="장착한 장식과 업그레이드된 우주선 미리보기"></canvas>
+        <div class="hangar-level"><span id="hangar-rank">SCOUT</span><span id="hangar-count">장착 0 / 9</span></div>
+      </div>
+      <h3 class="hangar-h gold" data-h="{sparkle} 업그레이드" data-s="한 번 사면 계속"></h3>
+      <div id="hangar-perks" class="skins perks"></div>
+      <h3 class="hangar-h" data-h="{rocket} 기체 색" data-s="한 번 사면 계속"></h3>
+      <div id="hangar-paints" class="skins"></div>
+      <h3 class="hangar-h" data-h="{rocket} 불꽃 색" data-s="한 번 사면 계속"></h3>
+      <div id="hangar-flames" class="skins"></div>
+      <div class="hangar-info">
+        <h3 class="hangar-h mint" data-h="{rabbit} 장식" data-s="구매 X · 판에서 먹으면 달려요"></h3>
+        <p class="hangar-note small">게임오버면 떨어져요. 70초 넘어서 같은 장식을 3번 먹으면 황금 각인 — 다음 판부터 금빛으로 달려요.</p>
+        <div id="hangar-parts" class="hangar-parts"></div>
+        <h3 class="hangar-h pink" data-h="{antenna} 전리품" data-s="격추해야만 떨어져요"></h3>
+        <div id="hangar-trophies" class="hangar-parts"></div>
+      </div>
+      <p class="hangar-note">★별조각은 UFO·모선 격추, 친구 구출, 행성 도착, 오늘의 미션, 버틴 시간으로 모이고 게임오버에도 남아요.<br>✦ 깊은 궤도에서 같은 장식을 3번 먹으면 황금 각인 — 그 뒤로는 먹을 때마다 금빛으로 달려요.</p>
+    </section>
+  </section>
+
+  <footer><span>취향은 존중. 추격은 사양.</span><span>v0.16 · BETA</span></footer>
+</main>
+<div id="old-webview" class="old-webview" hidden>
+  <b>WebView 업데이트가 필요해요</b>
+  <p>이 기기의 Android System WebView가 너무 오래되어 게임을 실행할 수 없어요.<br>Play 스토어에서 "Android System WebView"(또는 Chrome)를 업데이트한 뒤 다시 열어 주세요.</p>
+</div>
+<script>
+  // 오래된 WebView는 game.js를 해석하지 못해 빈 화면이 됩니다. 최신 문법을 쓴 한 줄이 실행되는지로 확인합니다.
+  // (eval/new Function 없이 — 보안 정책(CSP)이 엄격한 곳에서도 동작)
+  window.__NEON_SYNTAX_OK__ = ({ a: 1 })?.a ?? 0;
+</script>
+<script>
+  (function () {
+    var ok = window.__NEON_SYNTAX_OK__ === 1;
+    if (!ok || !window.ResizeObserver) {
+      document.getElementById('old-webview').hidden = false;
+      document.querySelector('.shell').hidden = true;
+      window.__NEON_OLD__ = true;
+    }
+  })();
+</script>
+<script src="game.js"></script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 이하 자동 백업: 게임 진행(WebView localStorage)만 백업하고 캐시는 제외 -->
+<full-backup-content>
+    <include domain="root" path="app_webview/" />
+    <exclude domain="root" path="app_webview/Default/GPUCache/" />
+    <exclude domain="root" path="app_webview/Default/Code Cache/" />
+</full-backup-content>

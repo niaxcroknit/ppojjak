@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 앱이 뜨는 순간 흰 화면이 번쩍이지 않도록 게임 배경색으로 시작 -->
+    <style name="AppTheme" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/neon_bg</item>
+        <item name="android:colorBackground">@color/neon_bg</item>
+    </style>
+</resources>

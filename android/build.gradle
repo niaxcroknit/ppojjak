@@ -1,0 +1,4 @@
+plugins {
+    // AGP 8.11 · Gradle 8.13+ (wrapper: 8.14.3) · JDK 17+ · compileSdk 36 지원
+    id 'com.android.application' version '8.11.1' apply false
+}
