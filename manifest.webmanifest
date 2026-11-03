@@ -1,0 +1,16 @@
+{
+  "name": "뽀짝 우주 대탈출",
+  "short_name": "뽀짝",
+  "description": "외계인은 귀여운 것부터 잡아간다! 한 손으로 운석을 피하고 친구를 구하는 도트 슈팅 게임",
+  "start_url": "./?app=1",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#15152d",
+  "theme_color": "#15152d",
+  "lang": "ko",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

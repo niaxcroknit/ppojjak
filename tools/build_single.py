@@ -19,4 +19,8 @@ css = re.sub(r"url\('(fonts/[^']+\.woff2?)'\)", _inline, css)
 html = html.replace(link, '<style>\n' + css + '</style>').replace(script, '<script>\n' + js.replace('</script', '<\\/script') + '</script>')
 out = root / 'index.html'
 out.write_text(html, encoding='utf-8')
+# 아이콘·매니페스트는 페이지가 상대 경로로 부르므로 index.html 옆(저장소 맨 위)에도 둡니다.
+import shutil
+shutil.copytree(web / 'icons', root / 'icons', dirs_exist_ok=True)
+shutil.copy2(web / 'manifest.webmanifest', root / 'manifest.webmanifest')
 print('built', out, len(html), 'bytes')
