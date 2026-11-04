@@ -122,22 +122,41 @@
     candy: { name: '사탕 불꽃', price: 50, out: '#ff8fb8', core: '#ffe0f0' },
     leaf: { name: '새싹 불꽃', price: 50, out: '#7fe3a8', core: '#e6fff6' },
   };
-  // v0.17.3 순위표 꾸미기(★로 사는 것). 서버에는 짧은 코드(n=..;b=..;f=..)만 보내고, 그릴 때는 이 목록에 있는 것만 씀
-  const NICK_COLORS = {
-    basic: { name: '기본 하양', price: 0, c: '#f4ebff' }, mint: { name: '민트', price: 40, c: '#a5f8d5' }, peach: { name: '복숭아', price: 40, c: '#ffc69a' },
-    pink: { name: '딸기 우유', price: 60, c: '#ff9cc4' }, sky: { name: '하늘', price: 60, c: '#9fd4ff' }, gold: { name: '반짝 금색', price: 120, c: '#ffd76a' },
+  // v0.17.5 프리미엄 상점. 등급: 0 기본 · 1 일반 · 2 희귀 · 3 전설
+  const RARITY = ['기본', '일반', '희귀', '전설'];
+  // 우주선: 색만이 아니라 모양 자체가 바뀜(충돌 판정은 그대로)
+  const MODELS = {
+    basic: { name: '기본 우주선', rar: 0, price: 0, desc: '처음 함께한 라벤더 우주선 · 기체 색을 바꿀 수 있어요' },
+    berry: { name: '딸기 우유 셔틀', rar: 1, price: 150, desc: '딸기 씨 무늬 · 꼭지 잎사귀 · 우유 날개' },
+    cat: { name: '냥냥 캡슐', rar: 2, price: 300, desc: '고양이 귀 · 수염 · 꼬리가 살랑', isNew: true },
+    candy: { name: '별사탕 크루저', rar: 2, price: 300, desc: '줄무늬 몸체 · 별 날개 · 반짝 꼬리' },
+    whale: { name: '구름 고래', rar: 3, price: 600, desc: '물 뿜는 고래 · 구름 날개' },
+    gold: { name: '황금 왕관호', rar: 3, price: 800, desc: '왕관 · 보석 창문 · 금가루 불꽃' },
   };
-  const BADGES = {
-    none: { name: '없음', price: 0 }, rabbit: { name: '토끼 귀', price: 50 }, duck: { name: '고무 오리', price: 50 }, chick: { name: '병아리', price: 60 },
-    rocket: { name: '로켓', price: 70 }, crown: { name: '왕관', price: 100 }, diamond: { name: '다이아', price: 130 },
+  // 순위표 꾸미기: 명패(줄 전체) · 글씨 효과 · 엠블럼(닉네임 앞 전용 그림) · 칭호(닉네임 아래 한 줄)
+  const PLATES = {
+    basic: { name: '기본 명패', rar: 0, price: 0, desc: '수수한 기본 줄' },
+    star: { name: '별빛 명패', rar: 2, price: 250, desc: '반짝반짝 별이 깜빡여요' },
+    sakura: { name: '벚꽃 명패', rar: 2, price: 250, desc: '꽃잎이 살랑살랑' },
+    neon: { name: '네온 명패', rar: 2, price: 300, desc: '테두리가 숨 쉬듯 빛나요' },
+    royal: { name: '황금 왕실 명패', rar: 3, price: 700, desc: '금빛이 스윽 지나가요' },
   };
-  const FRAMES = {
-    basic: { name: '기본', price: 0, bg: '#2a2548' }, galaxy: { name: '한밤 은하', price: 80, bg: 'linear-gradient(90deg,#2b2266,#3d2a74 55%,#1f3a5c)' },
-    sunset: { name: '노을', price: 80, bg: 'linear-gradient(90deg,#4a2a46,#6a3b45 60%,#7a5136)' }, mint: { name: '민트 젤리', price: 80, bg: 'linear-gradient(90deg,#1f4740,#2b5c50)' },
-    candy: { name: '사탕 줄무늬', price: 100, bg: 'repeating-linear-gradient(135deg,#4b2a4f 0 10px,#5d3363 10px 20px)' }, gold: { name: '황금 테두리', price: 150, bg: 'linear-gradient(90deg,#4a3a1c,#5e4a22)' },
+  const TEXTS = {
+    basic: { name: '기본 하양', rar: 0, price: 0, c: '#f4ebff' }, mint: { name: '민트', rar: 1, price: 40, c: '#a5f8d5' }, peach: { name: '복숭아', rar: 1, price: 40, c: '#ffc69a' },
+    pink: { name: '딸기 우유', rar: 1, price: 60, c: '#ff9cc4' }, sky: { name: '하늘', rar: 1, price: 60, c: '#9fd4ff' },
+    rainbow: { name: '무지개 글씨', rar: 2, price: 200, fx: true }, glow: { name: '네온 글씨', rar: 2, price: 200, fx: true }, gold: { name: '황금 글씨', rar: 3, price: 300, fx: true },
   };
-  const DECO_TABLES = { nickc: NICK_COLORS, badge: BADGES, frame: FRAMES };
-  const DECO_DEFAULT = { nickc: 'basic', badge: 'none', frame: 'basic' };
+  const EMBLEMS = {
+    none: { name: '없음', rar: 0, price: 0 }, wing: { name: '천사 날개', rar: 1, price: 150 }, heart: { name: '하트 방패', rar: 1, price: 150 },
+    ufo: { name: 'UFO 사냥꾼', rar: 2, price: 200 }, crown: { name: '별 왕관', rar: 3, price: 250 },
+  };
+  const TITLES = {
+    none: { name: '칭호 없음', rar: 0, price: 0 }, dodge: { name: '운석 피하기 장인', rar: 1, price: 120 }, hyper: { name: '귀여움 폭주 중', rar: 1, price: 120 },
+    hunter: { name: 'UFO 잡는 귀요미', rar: 2, price: 150 }, cutest: { name: '우주 최강 귀요미', rar: 3, price: 200 },
+  };
+  const DECO_TABLES = { plate: PLATES, text: TEXTS, emb: EMBLEMS, title: TITLES };
+  const DECO_DEFAULT = { plate: 'basic', text: 'basic', emb: 'none', title: 'none' };
+  const SETS = { gold: { name: '황금 세트', parts: [['model', 'gold'], ['plate', 'royal'], ['text', 'gold'], ['emb', 'crown']], off: 0.2 } };
   // 점수표 (v0.11): 버틴 시간(초당 10점)이 점수의 절반쯤 되도록 보너스를 낮췄습니다.
   const PTS = { item: 10, diamond: 60, overflow: 20, fish: 40, discoRock: 3, ufoHit: 1, ufoKill: 60, visitorKill: 40,
     starRock: 3, bossHit: 1, boss: 250, rescueAgain: 100, smash: 5, orb: 1, mission: 100 };
@@ -201,7 +220,7 @@
   let runDress = {}, runTrophy = {}, runFriends = {};
   let refunded14 = false, refundNote = 0;
   let perks = {}; // 영구 업그레이드
-  let stars = 0, owned = {}, skins = { paint: { basic: true }, flame: { basic: true }, nickc: { basic: true }, badge: { none: true }, frame: { basic: true } }, shipPaint = 'basic', flame = 'basic', deco = { ...DECO_DEFAULT }; // 별조각 · 산 장식 · 산 색 // 구한 친구 · 도착한 가장 먼 행성 · 체포한 보스
+  let stars = 0, owned = {}, skins = { paint: { basic: true }, flame: { basic: true }, model: { basic: true }, plate: { basic: true }, text: { basic: true }, emb: { none: true }, title: { none: true } }, shipPaint = 'basic', flame = 'basic', shipModel = 'basic', deco = { ...DECO_DEFAULT }, refund175 = false; // 별조각 · 산 장식 · 산 색 // 구한 친구 · 도착한 가장 먼 행성 · 체포한 보스
   let daily = { date: '', best: 0, done: false, streak: 0, lastDone: '' };
   // 입력
   const keys = new Set();
@@ -309,7 +328,20 @@
       for (const kind of ['paint', 'flame']) for (const k of Object.keys(kind === 'paint' ? PAINTS : FLAMES)) if (data.skins[kind] && data.skins[kind][k] === true) skins[kind][k] = true;
     if (data.skins && typeof data.skins === 'object')
       for (const kind of Object.keys(DECO_TABLES)) for (const k of Object.keys(DECO_TABLES[kind])) if (data.skins[kind] && data.skins[kind][k] === true) skins[kind][k] = true;
+    if (data.skins && data.skins.model) for (const k of Object.keys(MODELS)) if (data.skins.model[k] === true) skins.model[k] = true;
     if (data.deco && typeof data.deco === 'object') for (const kind of Object.keys(DECO_TABLES)) if (DECO_TABLES[kind][data.deco[kind]] && skins[kind][data.deco[kind]]) deco[kind] = data.deco[kind];
+    if (MODELS[data.model] && skins.model[data.model]) shipModel = data.model;
+    // v0.17.5: 예전 꾸미기(닉네임 색 → 글씨 색으로 옮김, 배지·줄 꾸미기는 ★ 돌려 드림)
+    refund175 = !!data.refund175;
+    if (!refund175 && data.skins && typeof data.skins === 'object') {
+      const OLD = { badge: { rabbit: 50, duck: 50, chick: 60, rocket: 70, crown: 100, diamond: 130 }, frame: { galaxy: 80, sunset: 80, mint: 80, candy: 100, gold: 150 }, nickc: { gold: 120 } };
+      let back = 0;
+      for (const kind of Object.keys(OLD)) for (const k of Object.keys(OLD[kind])) if (data.skins[kind] && data.skins[kind][k] === true) back += OLD[kind][k];
+      if (data.skins.nickc) for (const k of ['mint', 'peach', 'pink', 'sky']) if (data.skins.nickc[k] === true) skins.text[k] = true;
+      if (data.deco && TEXTS[data.deco.nickc] && skins.text[data.deco.nickc]) deco.text = data.deco.nickc;
+      stars += back;
+    }
+    refund175 = true;
     if (data.perks && typeof data.perks === 'object') for (const k of Object.keys(PERKS)) if (data.perks[k] === true) perks[k] = true;
     if (PAINTS[data.paint] && skins.paint[data.paint]) shipPaint = data.paint;
     if (FLAMES[data.flame] && skins.flame[data.flame]) flame = data.flame;
@@ -325,7 +357,7 @@
     for (const k of DRESS_KEYS) if (unlocked(k) && !(k in loadout)) loadout[k] = true;
   }
   function saveProgress() {
-    store.set(KEY_PROGRESS, JSON.stringify({ found, observed, trophies, loadout, counts, gold, tips, friends, reached, arrested, stars, owned, skins, paint: shipPaint, flame, deco, perks, trophyCount, trophyOn, refunded14 }));
+    store.set(KEY_PROGRESS, JSON.stringify({ found, observed, trophies, loadout, counts, gold, tips, friends, reached, arrested, stars, owned, skins, paint: shipPaint, flame, model: shipModel, deco, refund175, perks, trophyCount, trophyOn, refunded14 }));
   }
   const unlocked = (k) => !!owned[k]; // v0.13: 장식은 발견 후 ★별조각으로 구매
   // 황금 각인(영구): 깊은 궤도에서 3번 먹은 장식은, 다음 판부터 먹을 때마다 금빛으로 달려요.
@@ -610,6 +642,75 @@
     iconCanvas[type] = c;
     try { iconURL[type] = c.toDataURL(); } catch { iconURL[type] = ''; }
   }
+
+  // ═══ 프리미엄 우주선 · 엠블럼 도트 그림 (상점 시안 그대로) ═══
+  // g = 아무 2D 캔버스, (0,0) 중심, 기본 우주선의 약 1/1.6 크기로 그림 → 게임에선 1.6배로 키움
+  const ART = (() => {
+    const E = (g, x, y, rx, ry, c) => { g.fillStyle = c; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); g.fill(); };
+    const R = (g, x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
+    const ST = (g, x, y, r, c) => { g.fillStyle = c; g.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); } g.closePath(); g.fill(); };
+    const face = (g, x, y, s) => { E(g, x, y, 6 * s, 6 * s, '#cef3ad'); E(g, x - 2.5 * s, y - 3 * s, 1.6 * s, 2.6 * s, '#cef3ad'); E(g, x + 2.5 * s, y - 3 * s, 1.6 * s, 2.6 * s, '#cef3ad'); R(g, x - 2 * s, y - 0.5 * s, 1, 1.5, '#27304c'); R(g, x + 1.5 * s, y - 0.5 * s, 1, 1.5, '#27304c'); R(g, x - 4 * s, y + 1.5 * s, 2, 1, '#f1a9bb'); R(g, x + 2.5 * s, y + 1.5 * s, 2, 1, '#f1a9bb'); };
+    const fl = (g, x, y, out, core, f, len) => { const k = (f >> 3) & 1 ? 2 : 0; E(g, x, y, 3.5, 6 + k + len, out); E(g, x, y - 1, 1.6, 3 + k + len / 2, core); };
+    const ships = {
+      gold(g, f, len) {
+        fl(g, 0, 15, '#ffcf5a', '#fff8d0', f, 2 + len);
+        for (let i = 0; i < 3; i++) { const k = ((f >> 2) + i * 7) % 12; R(g, -4 + i * 4, 18 + k + len, 1, 1, '#fff1aa'); }
+        E(g, -9, 6, 5, 8, '#e0a83a'); E(g, 9, 6, 5, 8, '#e0a83a'); R(g, -12, 9, 2, 2, '#ff6f9a'); R(g, 10, 9, 2, 2, '#6fd4ff');
+        E(g, 0, 0, 10, 15, '#ffd76a'); E(g, -3, -6, 3, 5, '#fff6c8'); E(g, 0, 9, 10, 3, '#c9932d'); R(g, -9, 8, 18, 1, '#fff1aa');
+        E(g, 0, -1, 7, 7.5, '#7ee8ff'); E(g, 0, -1, 6, 6.5, '#a8f2ff'); face(g, 0, 0, 0.8);
+        g.fillStyle = '#ffd76a'; g.beginPath(); g.moveTo(-6, -13); g.lineTo(-6, -19); g.lineTo(-3, -15); g.lineTo(0, -21); g.lineTo(3, -15); g.lineTo(6, -19); g.lineTo(6, -13); g.closePath(); g.fill();
+        R(g, -6, -14, 12, 2, '#c9932d'); R(g, -1, -19, 2, 2, '#ff6f9a');
+        if (((f >> 4) & 3) === 0) ST(g, 8, -10, 2.5, '#ffffff');
+      },
+      cat(g, f, len) {
+        fl(g, 0, 15, '#ff9cc4', '#ffe0f0', f, len);
+        const sw = Math.round(Math.sin(f / 12) * 2);
+        g.strokeStyle = '#f2b680'; g.lineWidth = 2; g.beginPath(); g.moveTo(7, 10); g.quadraticCurveTo(15, 12, 14 + sw, 3); g.stroke();
+        E(g, -9, 7, 4.5, 6, '#f6cf9e'); E(g, 9, 7, 4.5, 6, '#f6cf9e'); E(g, -9, 9, 2, 1.6, '#ffb6c8'); E(g, 9, 9, 2, 1.6, '#ffb6c8');
+        g.fillStyle = '#ffe3c2'; g.beginPath(); g.moveTo(-9, -9); g.lineTo(-7, -19); g.lineTo(-2, -12); g.fill(); g.beginPath(); g.moveTo(9, -9); g.lineTo(7, -19); g.lineTo(2, -12); g.fill();
+        g.fillStyle = '#ffb6c8'; g.beginPath(); g.moveTo(-7, -11); g.lineTo(-6.5, -16); g.lineTo(-4, -12); g.fill(); g.beginPath(); g.moveTo(7, -11); g.lineTo(6.5, -16); g.lineTo(4, -12); g.fill();
+        E(g, 0, 0, 10, 13, '#ffe3c2'); R(g, -6, 4, 3, 1, '#e8a96a'); R(g, 3, 4, 3, 1, '#e8a96a'); R(g, -1, 7, 2, 1, '#e8a96a');
+        E(g, 0, -2, 7, 7, '#9fd4ff'); face(g, 0, -1, 0.8);
+        R(g, -12, -1, 4, 1, '#ffffff'); R(g, 8, -1, 4, 1, '#ffffff'); R(g, -12, 1, 4, 1, '#ffffffaa'); R(g, 8, 1, 4, 1, '#ffffffaa');
+      },
+      candy(g, f, len) {
+        fl(g, 0, 15, '#c9b5f4', '#ffffff', f, 1 + len);
+        for (let i = 0; i < 4; i++) { const k = ((f >> 2) + i * 5) % 14; ST(g, -5 + i * 3, 20 + k + len, 1.6, ['#ff9cc4', '#ffd76a', '#a5f8d5', '#9fd4ff'][i]); }
+        ST(g, -11, 5, 7, '#ffd76a'); ST(g, 11, 5, 7, '#a5f8d5'); R(g, -12, 4, 2, 2, '#fff'); R(g, 10, 4, 2, 2, '#fff');
+        E(g, 0, 0, 9, 15, '#fff0f7');
+        g.save(); g.beginPath(); g.ellipse(0, 0, 9, 15, 0, 0, Math.PI * 2); g.clip();
+        for (let y = -18; y < 18; y += 5) { g.fillStyle = '#ff9cc4'; g.beginPath(); g.moveTo(-10, y); g.lineTo(10, y - 6); g.lineTo(10, y - 4); g.lineTo(-10, y + 2); g.fill(); }
+        g.restore();
+        E(g, 0, -2, 6.5, 6.5, '#c9b5f4'); face(g, 0, -1, 0.75); ST(g, 0, -15, 3, '#ffd76a');
+      },
+      berry(g, f, len) {
+        fl(g, 0, 15, '#ff8fb8', '#fff0f5', f, len);
+        E(g, -9, 7, 4.5, 7, '#fff8f0'); E(g, 9, 7, 4.5, 7, '#fff8f0'); E(g, -9, 12, 2, 2.5, '#fff8f0'); E(g, 10, 13, 1.6, 2, '#fff8f0');
+        E(g, 0, 1, 10, 14, '#ff6f8f'); for (const [x, y] of [[-6, 5], [5, 6], [-2, 9], [3, 1], [-7, -3], [7, -2], [0, 12]]) R(g, x, y, 1, 2, '#ffe9a8');
+        g.fillStyle = '#5fcf7a'; g.beginPath(); g.moveTo(-7, -12); g.lineTo(0, -9); g.lineTo(7, -12); g.lineTo(3, -14); g.lineTo(0, -18); g.lineTo(-3, -14); g.closePath(); g.fill();
+        E(g, 0, -1, 6.5, 6.5, '#fff0f5'); face(g, 0, 0, 0.75);
+      },
+      whale(g, f, len) {
+        fl(g, 0, 15, '#9fd4ff', '#eef8ff', f, len);
+        for (const s of [-1, 1]) { E(g, s * 11, 6, 5, 4, '#ffffff'); E(g, s * 14, 3, 4, 3.5, '#f3f7ff'); E(g, s * 8, 9, 4, 3, '#e8eeff'); }
+        E(g, 0, 0, 11, 15, '#6fa8e8'); E(g, 0, 5, 8, 9, '#cfe6ff'); for (let i = 0; i < 4; i++) R(g, -5, 2 + i * 3, 10, 1, '#a9cdf2');
+        E(g, 0, -3, 6.5, 6.5, '#e9f6ff'); face(g, 0, -2, 0.75);
+        const sp = (f >> 3) % 3;
+        E(g, 0, -18 - sp, 2, 3, '#bfe8ff'); E(g, -3 - sp, -21 - sp, 1.6, 1.6, '#dff4ff'); E(g, 3 + sp, -21 - sp, 1.6, 1.6, '#dff4ff');
+      },
+    };
+    const embs = {
+      crown(g) { ST(g, 8, 6, 5, '#ffd76a'); g.fillStyle = '#ffd76a'; g.beginPath(); g.moveTo(2, 14); g.lineTo(2, 8); g.lineTo(5, 11); g.lineTo(8, 7); g.lineTo(11, 11); g.lineTo(14, 8); g.lineTo(14, 14); g.fill(); R(g, 7, 11, 2, 2, '#ff6f9a'); R(g, 2, 13, 12, 1, '#c9932d'); },
+      wing(g) { for (const s of [-1, 1]) { E(g, 8 + s * 4, 8, 3.5, 5, '#ffffff'); E(g, 8 + s * 6, 6, 2.5, 3.5, '#eaf2ff'); } E(g, 8, 9, 2.2, 2.2, '#ffd76a'); },
+      heart(g) { E(g, 5.5, 6, 3.5, 3.5, '#ff6f9a'); E(g, 10.5, 6, 3.5, 3.5, '#ff6f9a'); g.fillStyle = '#ff6f9a'; g.beginPath(); g.moveTo(2, 7); g.lineTo(8, 14); g.lineTo(14, 7); g.fill(); R(g, 4, 4, 2, 2, '#ffd0e0'); },
+      ufo(g) { E(g, 8, 7, 4, 4, '#9ddbd9'); E(g, 8, 10, 7, 2.6, '#c9b5f4'); R(g, 4, 10, 1, 1, '#fff1aa'); R(g, 8, 10, 1, 1, '#fff1aa'); R(g, 11, 10, 1, 1, '#fff1aa'); R(g, 7, 6, 1, 1, '#33314d'); R(g, 9, 6, 1, 1, '#33314d'); g.strokeStyle = '#ff6f9a'; g.lineWidth = 1; g.beginPath(); g.moveTo(1, 1); g.lineTo(15, 15); g.stroke(); },
+    };
+    return { ships, embs };
+  })();
+  const EMB_URL = {};
+  for (const k of Object.keys(ART.embs)) {
+    try { const c = document.createElement('canvas'); c.width = c.height = 16; ART.embs[k](c.getContext('2d')); EMB_URL[k] = c.toDataURL(); } catch { EMB_URL[k] = ''; }
+  }
   const icon = (type, cls = 'ico') => `<img class="${cls}" src="${iconURL[type]}" alt="" aria-hidden="true">`;
   // '{rabbit} 토끼 귀'처럼 {키}를 도트 아이콘으로 바꿉니다. (내부 문자열만 사용)
   const rich = (s) => s.replace(/\{(\w+)\}/g, (m, k) => (iconURL[k] !== undefined ? icon(k) : m));
@@ -816,6 +917,98 @@
     hangarMsg('구매 완료! ★' + stars + ' 남음'); tone(988, 0.12); setTimeout(() => tone(1318, 0.12), 90); buzz(30);
     refreshHangar();
   }
+  // ── 프리미엄 상점 (우주선 / 순위표 꾸미기 탭) ──
+  let shopTab = 'ship', shopPick = 'gold';
+  const rarTag = (r) => '<span class="rar r' + r + '">' + RARITY[r] + '</span>';
+  function equipDeco(kind, k) { deco[kind] = k; saveProgress(); pushProfile(); }
+  function setPrice(set) { let full = 0; for (const [kind, k] of set.parts) if (!skins[kind][k]) full += (kind === 'model' ? MODELS : DECO_TABLES[kind])[k].price; return { full, price: Math.round((full * (1 - set.off)) / 10) * 10 }; }
+  function refreshShop() {
+    for (const t of ['ship', 'rank']) { const b = $('shop-tab-' + t); b.classList.toggle('on', shopTab === t); b.setAttribute('aria-selected', String(shopTab === t)); $('shop-' + t).hidden = shopTab !== t; }
+    // 쇼케이스(고른 우주선 크게)
+    const M = MODELS[shopPick], have = !!skins.model[shopPick], on = shipModel === shopPick, id = 'model:' + shopPick;
+    $('shop-hero-rar').className = 'rar r' + M.rar; $('shop-hero-rar').textContent = RARITY[M.rar];
+    $('shop-hero-name').textContent = M.name; $('shop-hero-desc').textContent = M.desc;
+    const hb = $('shop-hero-buy');
+    hb.textContent = on ? '장착 중' : have ? '장착하기' : buyArmed === id ? '한 번 더 누르면 구매!' : '★ ' + M.price.toLocaleString('ko-KR') + ' 구매';
+    hb.className = 'buy' + (on ? ' owned' : have ? ' equip' : '') + (buyArmed === id ? ' armed' : '');
+    hb.disabled = on;
+    const grid = $('shop-models'); grid.replaceChildren();
+    for (const [k, m] of Object.entries(MODELS)) {
+      const own = !!skins.model[k], c = document.createElement('button');
+      c.type = 'button'; c.className = 'shop-card l' + m.rar + (shopPick === k ? ' pick' : '') + (shipModel === k ? ' using' : '');
+      c.innerHTML = (m.isNew && !own ? '<i class="ribbon">NEW</i>' : '') + '<span class="art"><canvas data-model="' + k + '" width="60" height="56"></canvas></span>' + rarTag(m.rar) + '<b></b><small></small><span class="price"></span>';
+      c.querySelector('b').textContent = m.name; c.querySelector('small').textContent = m.desc;
+      c.querySelector('.price').innerHTML = shipModel === k ? '<span class="own">장착 중</span>' : own ? '<span class="own dim">보유</span>' : '<em>★ ' + m.price.toLocaleString('ko-KR') + '</em>';
+      c.onclick = () => { shopPick = k; buyArmed = ''; refreshShop(); tone(660, 0.04); };
+      grid.append(c);
+    }
+    // 순위표 꾸미기
+    decorateRow($('deco-preview'), nick || '내 닉네임', decoCode(), true);
+    const plates = $('shop-plates'); plates.replaceChildren();
+    for (const [k, pl] of Object.entries(PLATES)) {
+      const own = !!skins.plate[k], li = document.createElement('li'), id2 = 'plate:' + k;
+      li.innerHTML = '<b>·</b><span></span><em></em>';
+      decorateRow(li, pl.name, 'p=' + k + ';t=' + (k === 'royal' ? 'gold' : k === 'neon' ? 'glow' : 'basic'), false);
+      li.classList.add('shop-plate'); if (deco.plate === k) li.classList.add('using');
+      li.querySelector('.nmbox').insertAdjacentHTML('beforeend', '<small class="ttl">' + pl.desc + ' ' + rarTag(pl.rar) + '</small>');
+      li.children[2].innerHTML = deco.plate === k ? '<span class="own">사용 중</span>' : own ? '<span class="own dim">고르기</span>' : buyArmed === id2 ? '<span class="armed-t">눌러서 구매!</span>' : '★ ' + pl.price;
+      li.onclick = () => (own ? (equipDeco('plate', k), refreshHangar(), tone(620)) : tryBuy(id2, pl.price, () => { skins.plate[k] = true; equipDeco('plate', k); }));
+      plates.append(li);
+    }
+    for (const [kind, table, box] of [['text', TEXTS, 'shop-texts'], ['emb', EMBLEMS, 'shop-embs'], ['title', TITLES, 'shop-titles']]) {
+      const el = $(box); el.replaceChildren();
+      for (const [k, it] of Object.entries(table)) {
+        const own = !!skins[kind][k], on2 = deco[kind] === k, id3 = kind + ':' + k, b = document.createElement('button');
+        b.type = 'button'; b.className = 'chip r' + it.rar + (on2 ? ' on' : '') + (buyArmed === id3 ? ' armed' : '');
+        const label = document.createElement('span');
+        if (kind === 'text') { label.className = 'tx-' + k; if (!it.fx) label.style.color = it.c; label.textContent = it.name; }
+        else if (kind === 'emb') { if (k !== 'none') b.insertAdjacentHTML('beforeend', '<img class="emb" alt="" src="' + EMB_URL[k] + '">'); label.textContent = it.name; }
+        else label.textContent = (k === 'none' ? '' : '✦ ') + it.name;
+        b.append(label);
+        b.insertAdjacentHTML('beforeend', on2 ? '<small class="own">사용 중</small>' : own ? '' : buyArmed === id3 ? '<small class="armed-t">눌러서 구매!</small>' : '<em>★' + it.price + '</em>');
+        b.onclick = () => (own ? (equipDeco(kind, k), refreshHangar(), tone(620)) : tryBuy(id3, it.price, () => { skins[kind][k] = true; equipDeco(kind, k); }));
+        el.append(b);
+      }
+    }
+    // 세트
+    const set = SETS.gold, sp = setPrice(set), all = sp.full === 0, setId = 'set:gold';
+    $('shop-set').innerHTML = '<h4>' + set.name + '</h4><p>황금 왕관호 + 황금 왕실 명패 + 황금 글씨 + 별 왕관 · 한 번에 ' + Math.round(set.off * 100) + '% 할인</p>'
+      + '<div class="set-row"><canvas data-model="gold" width="40" height="36"></canvas><div class="set-p">' + rarTag(3) + '<span class="price">' + (all ? '<span class="own">모두 보유</span>' : '<em>★ ' + sp.price.toLocaleString('ko-KR') + '</em><s>★ ' + sp.full.toLocaleString('ko-KR') + '</s>') + '</span></div>'
+      + (all ? '' : '<button id="shop-set-buy" class="buy' + (buyArmed === setId ? ' armed' : '') + '" type="button">' + (buyArmed === setId ? '한 번 더!' : '세트 구매') + '</button>') + '</div>';
+    if (!all) $('shop-set-buy').onclick = () => tryBuy(setId, sp.price, () => {
+      for (const [kind, k] of set.parts) skins[kind][k] = true;
+      shipModel = 'gold'; deco.plate = 'royal'; deco.text = 'gold'; deco.emb = 'crown'; shopPick = 'gold'; pushProfile();
+    });
+  }
+  function shopHeroBuy() {
+    const k = shopPick, M = MODELS[k];
+    if (shipModel === k) return;
+    if (skins.model[k]) { shipModel = k; saveProgress(); refreshHangar(); tone(620); return; }
+    tryBuy('model:' + k, M.price, () => { skins.model[k] = true; shipModel = k; });
+  }
+  // 상점의 우주선 그림(작은 캔버스마다 따로 그림, 매 프레임 살짝 움직임)
+  function renderShopArt() {
+    if (mode !== 'hangar') return;
+    const draw1 = (c, k, sc) => {
+      const g = c.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, c.width, c.height); g.imageSmoothingEnabled = false;
+      g.translate(Math.round(c.width / 2), Math.round(c.height / 2 - 2 + Math.sin(tick / 20)));
+      g.scale(sc, sc);
+      if (k === 'basic') { g.scale(0.62, 0.62); drawBasicMini(g); } else ART.ships[k](g, tick, 0);
+    };
+    if (shopTab === 'ship') {
+      draw1($('shop-hero'), shopPick, 1.6);
+      for (const c of document.querySelectorAll('#shop-models canvas[data-model]')) draw1(c, c.dataset.model, 1);
+    } else for (const c of document.querySelectorAll('#shop-set canvas[data-model]')) draw1(c, c.dataset.model, 0.7);
+  }
+  // 기본 우주선 작은 그림(상점 카드용 — 게임 그림과 같은 모양)
+  function drawBasicMini(g) {
+    const pc = PAINTS[shipPaint] || PAINTS.basic, fc = FLAMES[flame] || FLAMES.basic;
+    const E = (x, y, rx, ry, c) => { g.fillStyle = c; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); g.fill(); };
+    E(0, 25, 7, 11 + ((tick >> 3) & 1 ? 4 : 0), fc.out); E(0, 23, 3, 6, fc.core);
+    E(-14, 9, 8, 13, pc.wing); E(14, 9, 8, 13, pc.wing);
+    E(0, 0, 16, 25, pc.body); E(-5, -9, 5, 9, '#ffffff'); E(0, -2, 11, 12, pc.win);
+    E(0, 0, 8, 8, '#cef3ad'); E(-5, -5, 3, 5, '#cef3ad'); E(5, -5, 3, 5, '#cef3ad'); E(-3, 0, 1.3, 1.8, '#27304c'); E(3, 0, 1.3, 1.8, '#27304c');
+  }
   function hangarMsg(text) { $('hangar-msg').textContent = text; }
   function refreshHangar() {
     $('hangar-stars').textContent = '★ ' + stars.toLocaleString('ko-KR');
@@ -841,29 +1034,7 @@
       b.children[2].textContent = have ? '격추 기록 ×' + trophyCount[k] : T.from;
       tbox.append(b);
     }
-    for (const [kind, table, boxId] of [['nickc', NICK_COLORS, 'hangar-nickc'], ['badge', BADGES, 'hangar-badge'], ['frame', FRAMES, 'hangar-frame']]) {
-      const box = $(boxId);
-      box.replaceChildren();
-      for (const [k, sk] of Object.entries(table)) {
-        const have = !!skins[kind][k], on = deco[kind] === k, id = kind + ':' + k, b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'skin deco-' + kind + (on ? ' on' : '') + (have ? '' : ' shop') + (buyArmed === id ? ' armed' : '');
-        b.setAttribute('aria-pressed', String(on));
-        b.innerHTML = '<i></i><small></small><em></em>';
-        if (kind === 'nickc') b.firstChild.style.background = sk.c;
-        else if (kind === 'frame') { b.firstChild.style.background = sk.bg; if (k === 'gold') b.firstChild.style.boxShadow = 'inset 0 0 0 2px #ffd76a'; }
-        else b.firstChild.innerHTML = k === 'none' ? '' : icon(k, 'ico');
-        b.children[1].textContent = sk.name;
-        b.children[2].textContent = on ? '사용 중' : have ? '고르기' : buyArmed === id ? '눌러서 구매!' : '★ ' + sk.price;
-        b.onclick = () => {
-          const pick = () => { deco[kind] = k; saveProgress(); refreshHangar(); tone(620); pushProfile(); };
-          if (have) pick();
-          else tryBuy(id, sk.price, () => { skins[kind][k] = true; deco[kind] = k; pushProfile(); });
-        };
-        box.append(b);
-      }
-    }
-    decorateRow($('deco-preview'), nick || '내 닉네임', decoCode(), true);
+    refreshShop();
     for (const [kind, table, boxId] of [['paint', PAINTS, 'hangar-paints'], ['flame', FLAMES, 'hangar-flames']]) {
       const box = $(boxId);
       box.replaceChildren();
@@ -902,9 +1073,9 @@
   }
   function openHangar() {
     if (!['ready', 'over', 'playing', 'paused'].includes(mode)) return;
-    hangarFrom = mode; mode = 'hangar'; keys.clear(); dragging = false; buyArmed = '';
+    hangarFrom = mode; mode = 'hangar'; keys.clear(); dragging = false; buyArmed = ''; shopPick = shipModel !== 'basic' ? shipModel : skins.model.gold ? 'basic' : 'gold';
     $('panel').inert = true; $('pause').disabled = true; $('hangar').hidden = false;
-    hangarMsg('★는 업그레이드 · 기체 색 · 불꽃 색 · 순위표 꾸미기에 써요');
+    hangarMsg('★로 우주선 · 순위표 꾸미기 · 업그레이드를 살 수 있어요');
     refreshHangar(); $('hangar-close').focus();
   }
   function closeHangar() {
@@ -1315,27 +1486,33 @@
   function rankLine(text) { $('rank-line').textContent = text; $('rank-line').hidden = false; }
   // 순위는 두 종류: free = 자유 비행(일반 판), course = 오늘의 코스(모두 같은 배치)
   const KIND_NAME = { free: '자유 비행', course: '오늘의 코스' };
+  // 자유 비행 순위는 주간(한국 시간 월요일 0시에 새로 시작), 오늘의 코스는 코스가 매일 바뀌니 하루
+  const kstNow = () => new Date(Date.now() + 9 * 3600e3);
+  const ymd = (d) => d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
+  function weekKey() { const d = kstNow(); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return ymd(d); }
+  const rankDay = (kind) => (kind === 'free' ? weekKey() : dayKey());
+  const PERIOD = { free: '이번 주', course: '오늘' };
   let boardKind = 'free';
   function rankAfterRun(sc, secs) {
     const kind = course ? 'course' : 'free';
     boardKind = kind; $('rank-line').dataset.act = 'board';
-    if (!nick) { pendingRank = { sc, secs, kind }; showNickBox(); rankLine('닉네임을 정하면 오늘 순위에 올라가요'); return; }
+    if (!nick) { pendingRank = { sc, secs, kind }; showNickBox(); rankLine('닉네임을 정하면 ' + PERIOD[kind] + ' 순위에 올라가요'); return; }
     submitRank(sc, secs, kind);
   }
   function showNickBox() { $('nick-box').hidden = false; $('nick-input').value = nick; }
   async function submitRank(sc, secs, kind = 'free') {
-    rankLine('오늘 순위 올리는 중…');
+    rankLine('순위 올리는 중…');
     try {
-      const r = await rpc('submit_daily', { p_day: dayKey(), p_device: deviceId, p_nick: nick, p_score: sc, p_secs: Math.max(1, secs), p_kind: kind, p_deco: decoCode() });
+      const r = await rpc('submit_daily', { p_day: rankDay(kind), p_device: deviceId, p_nick: nick, p_score: sc, p_secs: Math.max(1, secs), p_kind: kind, p_deco: decoCode() });
       if (!r || !r.ok) {
-        const why = { taken: "'" + nick + "'은(는) 이미 누가 쓰고 있어요 · 닉네임을 바꿔 주세요", nick: '닉네임은 1~10자로 해 주세요', nick_banned: '그 닉네임은 쓸 수 없어요 · 다른 걸로!', day: '오늘 순위는 한국 시간 기준이에요', score: '이 기록은 순위에 올릴 수 없어요' }[r && r.error] || '순위 등록에 실패했어요';
+        const why = { taken: "'" + nick + "'은(는) 이미 누가 쓰고 있어요 · 닉네임을 바꿔 주세요", nick: '닉네임은 1~10자로 해 주세요', nick_banned: '그 닉네임은 쓸 수 없어요 · 다른 걸로!', day: '순위는 한국 시간 기준이에요 · 다시 해 보세요', score: '이 기록은 순위에 올릴 수 없어요' }[r && r.error] || '순위 등록에 실패했어요';
         rankLine(why);
         if (r && /nick|taken/.test(r.error)) { pendingRank = { sc, secs, kind }; showNickBox(); }
         return;
       }
       pendingRank = null;
-      const tag = KIND_NAME[kind] + ' ';
-      rankLine(r.rank === 1 ? tag + '오늘 1위! · ' + r.total + '명 중 (내 최고 ' + ko(r.best) + '점)' : tag + '오늘 ' + r.rank + '위 / ' + r.total + '명 · ' + (r.rank - 1) + '위까지 ' + ko(r.gap) + '점!');
+      const tag = KIND_NAME[kind] + ' ' + PERIOD[kind] + ' ';
+      rankLine(r.rank === 1 ? tag + '1위! · ' + r.total + '명 중 (내 최고 ' + ko(r.best) + '점)' : tag + r.rank + '위 / ' + r.total + '명 · ' + (r.rank - 1) + '위까지 ' + ko(r.gap) + '점!');
     } catch { rankLine('순위를 못 올렸어요 · 인터넷 연결을 확인해 주세요'); }
   }
   async function saveNick() {
@@ -1351,18 +1528,23 @@
     if (pendingRank) submitRank(pendingRank.sc, pendingRank.secs, pendingRank.kind);
   }
   // ── 순위표 꾸미기 ──
-  const decoCode = () => 'n=' + deco.nickc + ';b=' + deco.badge + ';f=' + deco.frame;
+  const decoCode = () => 'p=' + deco.plate + ';t=' + deco.text + ';e=' + deco.emb + ';h=' + deco.title;
   function parseDeco(s) {
-    const d = { ...DECO_DEFAULT }, map = { n: 'nickc', b: 'badge', f: 'frame' };
+    const d = { ...DECO_DEFAULT }, map = { p: 'plate', t: 'text', e: 'emb', h: 'title', n: 'text' }; // n = 예전 닉네임 색
     for (const part of String(s || '').split(';')) { const [a, v] = part.split('='); const kind = map[a]; if (kind && DECO_TABLES[kind][v]) d[kind] = v; }
     return d;
   }
   function decorateRow(li, name, code, mine) {
     const d = parseDeco(code);
-    li.className = 'board-row f-' + d.frame + (mine ? ' mine' : '');
+    li.className = 'board-row pl-' + d.plate + (mine ? ' mine' : '');
     const sp = li.children[1]; sp.replaceChildren();
-    if (d.badge !== 'none') { const w = document.createElement('i'); w.className = 'badge'; w.innerHTML = icon(d.badge, 'ico'); sp.append(w); }
-    const n = document.createElement('span'); n.className = 'nm'; n.textContent = name; n.style.color = NICK_COLORS[d.nickc].c; sp.append(n);
+    if (d.emb !== 'none' && EMB_URL[d.emb]) { const im = document.createElement('img'); im.className = 'emb'; im.src = EMB_URL[d.emb]; im.alt = ''; sp.append(im); }
+    const box = document.createElement('span'); box.className = 'nmbox';
+    const n = document.createElement('span'); n.className = 'nm tx-' + d.text; n.textContent = name;
+    if (!TEXTS[d.text].fx) n.style.color = TEXTS[d.text].c;
+    box.append(n);
+    if (d.title !== 'none') { const tt = document.createElement('small'); tt.className = 'ttl'; tt.textContent = '✦ ' + TITLES[d.title].name; box.append(tt); }
+    sp.append(box);
   }
   let profileTimer = 0;
   function pushProfile() { // 오늘 이미 올라간 내 기록에도 닉네임·꾸미기를 바로 반영
@@ -1500,14 +1682,15 @@
       $('panel').inert = true; $('pause').disabled = true; $('board').hidden = false; $('board-close').focus();
     }
     for (const k of ['free', 'course']) { const t = $('board-tab-' + k); t.classList.toggle('on', k === boardKind); t.setAttribute('aria-selected', String(k === boardKind)); }
-    $('board-rule').textContent = boardKind === 'course' ? '오늘의 코스는 모두 같은 운석 배치라 실력으로만 겨뤄요.' : '평소 판(자유 비행)의 오늘 최고 점수끼리 겨뤄요.';
+    $('board-rule').textContent = boardKind === 'course' ? '오늘의 코스는 모두 같은 운석 배치라 실력으로만 겨뤄요.' : '평소 판(자유 비행)의 이번 주 최고 점수끼리 겨뤄요. 꾸민 명패를 일주일 내내 자랑!';
     $('board-nick').textContent = nick ? '내 닉네임 ' + nick + ' · 바꾸기 ✎\uFE0E' : '닉네임 만들기 ✎\uFE0E';
     const want = boardKind;
     const list = $('board-list'); list.replaceChildren();
     $('board-me').textContent = '불러오는 중…';
-    $('board-day').textContent = dayKey().slice(5).replace('-', '월 ') + '일 · 매일 밤 12시에 새로 시작';
+    if (want === 'free') { const a = new Date(weekKey() + 'T00:00:00Z'), b = new Date(a.getTime() + 6 * 864e5); $('board-day').textContent = '이번 주 ' + (a.getUTCMonth() + 1) + '/' + a.getUTCDate() + '(월) ~ ' + (b.getUTCMonth() + 1) + '/' + b.getUTCDate() + '(일) · 월요일 0시에 새로 시작'; }
+    else $('board-day').textContent = '오늘 ' + dayKey().slice(5).replace('-', '월 ') + '일 · 코스가 매일 바뀌어서 매일 밤 12시에 새로 시작';
     try {
-      const r = await rpc('daily_board', { p_day: dayKey(), p_device: deviceId, p_kind: want });
+      const r = await rpc('daily_board', { p_day: rankDay(want), p_device: deviceId, p_kind: want });
       if (mode !== 'board' || want !== boardKind) return;
       for (const e of r.top || []) {
         const li = document.createElement('li');
@@ -1516,7 +1699,7 @@
         decorateRow(li, e.nick, e.deco, !!e.mine);
         list.append(li);
       }
-      if (!(r.top || []).length) $('board-me').textContent = '아직 아무도 없어요 · 오늘 1등 기회!';
+      if (!(r.top || []).length) $('board-me').textContent = '아직 아무도 없어요 · ' + PERIOD[want] + ' 1등 기회!';
       else if (r.me) $('board-me').textContent = '내 순위 ' + r.me.rank + '위 / ' + r.total + '명' + (r.me.gap ? ' · ' + (r.me.rank - 1) + '위까지 ' + ko(r.me.gap) + '점' : ' · 1등!');
       else $('board-me').textContent = (want === 'course' ? '오늘의 코스를 하면' : '한 판 하면') + ' 순위에 올라가요 · ' + r.total + '명 도전 중';
     } catch { if (mode === 'board') $('board-me').textContent = '순위를 불러오지 못했어요 · 인터넷 연결을 확인해 주세요'; }
@@ -2798,6 +2981,9 @@
     dressBack(t);
     const flameLen = ((tick >> 3) & 1 ? 4 : 0) + (hyperLeft > 0 && !inHangar ? 14 + ((tick >> 2) & 1) * 6 : 0); // 2프레임 불꽃 (하이퍼: 길게)
     const pc = PAINTS[shipPaint] || PAINTS.basic, fc = FLAMES[flameSkin()] || FLAMES.basic;
+    if (shipModel !== 'basic' && ART.ships[shipModel]) { // 프리미엄 우주선(모양이 다름)
+      ctx.save(); ctx.scale(1.6, 1.6); ART.ships[shipModel](ctx, tick, flameLen / 1.6); ctx.restore();
+    } else {
     ellipse(0, 25, 7, 11 + flameLen, fc.out); ellipse(0, 23, 3, 6 + flameLen, fc.core);
     drawWing(-1); drawWing(1);
     ellipse(0, 0, 16, 25, pc.body); ellipse(-5, -9, 5, 9, '#ffffff'); ellipse(0, -2, 11, 12, pc.win);
@@ -2806,6 +2992,7 @@
     ctx.strokeStyle = '#45634b'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0, 2, 2, 0, Math.PI); ctx.stroke();
     ellipse(-4, -7, 2, 3, '#ffffff99');
     ctx.fillStyle = pc.wing; ctx.beginPath(); ctx.roundRect(-7, 17, 14, 5, 2); ctx.fill();
+    }
     drawDamage(); dressFront();
     if (weaponLeft > 0 && !inHangar) {
       const blink = weaponLeft > 3 || (tick >> 3) & 1;
@@ -3073,7 +3260,7 @@
     ctx.globalAlpha = 1;
     if (nearClock > 0 && nearCombo > 0)
       labels.push({ s: 'NEAR! ×' + nearCombo, x: clamp(playerX, 65, width - 65), y: playerY - 55, font: '12px monospace', color: '#ffe5a0' });
-    if (mode === 'hangar') { labels = []; renderHangar(t); }
+    if (mode === 'hangar') { labels = []; renderHangar(t); renderShopArt(); }
     if (mode === 'intro') { labels = []; renderIntro(t); }
     // 저해상도 화면을 도트가 보이게 확대한 뒤, 작은 글자만 선명하게 덧그립니다.
     view.setTransform(1, 0, 0, 1, 0, 0); view.imageSmoothingEnabled = false;
@@ -3122,6 +3309,9 @@
   $('rank-line').onclick = () => openBoard();
   $('board-tab-free').onclick = () => openBoard('free');
   $('board-nick').onclick = () => openIntro(true);
+  $('shop-tab-ship').onclick = () => { shopTab = 'ship'; buyArmed = ''; refreshShop(); };
+  $('shop-tab-rank').onclick = () => { shopTab = 'rank'; buyArmed = ''; refreshShop(); };
+  $('shop-hero-buy').onclick = shopHeroBuy;
   $('nick-open').onclick = () => openIntro(true);
   $('intro-next').onclick = introNext; $('intro-skip').onclick = introSkip;
   { let sx = null; // 옆으로 밀어서 넘기기

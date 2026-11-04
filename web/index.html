@@ -71,7 +71,7 @@
       <button id="over-more" class="book-open over-more" type="button" hidden>결과 보기 · 카톡 자랑하기 ↗&#xFE0E;</button>
       <button id="course-start" class="course-button">오늘의 코스 <small id="course-best">모두 같은 배치</small></button>
       <div id="daily" class="daily"></div>
-      <div class="panel-links"><button id="book-open" class="book-open">발견 도감 ↗&#xFE0E;</button><button id="journey-open" class="book-open">여정 · 지도 ↗&#xFE0E;</button><button id="tutorial-open" class="book-open">연습 비행 ↗&#xFE0E;</button><button id="board-open" class="book-open">오늘 순위 ↗&#xFE0E;</button><button id="nick-open" class="book-open">닉네임 ✎&#xFE0E;</button></div>
+      <div class="panel-links"><button id="book-open" class="book-open">발견 도감 ↗&#xFE0E;</button><button id="journey-open" class="book-open">여정 · 지도 ↗&#xFE0E;</button><button id="tutorial-open" class="book-open">연습 비행 ↗&#xFE0E;</button><button id="board-open" class="book-open">순위 ↗&#xFE0E;</button><button id="nick-open" class="book-open">닉네임 ✎&#xFE0E;</button></div>
       <div class="hint">상하좌우 드래그 · 탭으로 위장<br><small>PC: 방향키 / WASD 이동 · Space / M 위장 · Esc 일시정지</small></div>
       <div id="debug" class="debug" hidden></div>
     </div>
@@ -135,7 +135,7 @@
     </section>
 
     <section id="board" class="item-book" role="dialog" aria-modal="true" aria-labelledby="board-title" hidden>
-      <div class="book-head"><h2 id="board-title">오늘 순위</h2><button id="board-close" class="icon close" aria-label="닫기">✕</button></div>
+      <div class="book-head"><h2 id="board-title">순위</h2><button id="board-close" class="icon close" aria-label="닫기">✕</button></div>
       <div class="board-tabs" role="tablist"><button id="board-tab-free" role="tab" class="on" aria-selected="true">자유 비행</button><button id="board-tab-course" role="tab" aria-selected="false">오늘의 코스</button></div>
       <p class="book-rule"><span id="board-day"></span><br><span id="board-rule">평소 판(자유 비행)의 오늘 최고 점수끼리 겨뤄요.</span></p>
       <div id="board-me" class="board-me"></div>
@@ -146,27 +146,43 @@
     <section id="hangar" class="hangar" role="dialog" aria-modal="true" aria-labelledby="hangar-title" hidden>
       <div class="book-head"><h2 id="hangar-title">상점</h2><button id="hangar-close" class="icon close" aria-label="닫기">✕</button></div>
       <div class="hangar-wallet"><small>내 별조각</small><b id="hangar-stars">★ 0</b><span id="hangar-msg" class="hangar-msg" role="status" aria-live="polite"></span></div>
-      <div class="hangar-stage">
-        <canvas id="hangar-preview" aria-label="장착한 장식과 업그레이드된 우주선 미리보기"></canvas>
-        <div class="hangar-level"><span id="hangar-rank">SCOUT</span><span id="hangar-count">장착 0 / 9</span></div>
-      </div>
-      <h3 class="hangar-h gold" data-h="{sparkle} 업그레이드" data-s="한 번 사면 계속"></h3>
-      <div id="hangar-perks" class="skins perks"></div>
-      <h3 class="hangar-h" data-h="{rocket} 기체 색" data-s="한 번 사면 계속"></h3>
-      <div id="hangar-paints" class="skins"></div>
-      <h3 class="hangar-h" data-h="{rocket} 불꽃 색" data-s="한 번 사면 계속"></h3>
-      <div id="hangar-flames" class="skins"></div>
-      <h3 class="hangar-h pink" data-h="{crown} 순위표 꾸미기" data-s="한 번 사면 계속"></h3>
-      <ol class="board-list deco-preview"><li id="deco-preview" class="board-row mine"><b>1</b><span></span><em>9,999점</em></li></ol>
-      <p class="deco-sub">닉네임 색</p><div id="hangar-nickc" class="skins"></div>
-      <p class="deco-sub">배지</p><div id="hangar-badge" class="skins"></div>
-      <p class="deco-sub">줄 꾸미기</p><div id="hangar-frame" class="skins"></div>
+      <div class="shop-tabs" role="tablist"><button id="shop-tab-ship" role="tab" class="on" aria-selected="true">우주선</button><button id="shop-tab-rank" role="tab" aria-selected="false">순위표 꾸미기</button></div>
+      <div id="shop-ship" class="shop-pane">
+        <div class="show"><div class="rays"></div><div class="pad"></div><canvas id="shop-hero" width="90" height="80" aria-hidden="true"></canvas>
+          <div class="show-info"><div><span id="shop-hero-rar" class="rar"></span><b id="shop-hero-name"></b><small id="shop-hero-desc"></small></div><button id="shop-hero-buy" class="buy" type="button"></button></div></div>
+        <div id="shop-models" class="shop-grid"></div>
+        <h3 class="hangar-h" data-h="{rocket} 지금 내 우주선" data-s="장식·업그레이드까지"></h3>
+        <div class="hangar-stage">
+          <canvas id="hangar-preview" aria-label="장착한 장식과 업그레이드된 우주선 미리보기"></canvas>
+          <div class="hangar-level"><span id="hangar-rank">SCOUT</span><span id="hangar-count">장착 0 / 9</span></div>
+        </div>
+        <h3 class="hangar-h gold" data-h="{sparkle} 업그레이드" data-s="한 번 사면 계속"></h3>
+        <div id="hangar-perks" class="skins perks"></div>
+        <h3 class="hangar-h" data-h="{rocket} 기체 색" data-s="기본 우주선 전용"></h3>
+        <div id="hangar-paints" class="skins"></div>
+        <h3 class="hangar-h" data-h="{rocket} 불꽃 색" data-s="기본 우주선 전용"></h3>
+        <div id="hangar-flames" class="skins"></div>
       <div class="hangar-info">
         <h3 class="hangar-h mint" data-h="{rabbit} 장식" data-s="구매 X · 판에서 먹으면 달려요"></h3>
         <p class="hangar-note small">게임오버면 떨어져요. 70초 넘어서 같은 장식을 3번 먹으면 황금 각인 — 다음 판부터 금빛으로 달려요.</p>
         <div id="hangar-parts" class="hangar-parts"></div>
         <h3 class="hangar-h pink" data-h="{antenna} 전리품" data-s="격추해야만 떨어져요"></h3>
         <div id="hangar-trophies" class="hangar-parts"></div>
+      </div>
+      </div>
+      <div id="shop-rank" class="shop-pane" hidden>
+        <div class="shop-sec">미리보기 <small>다른 사람 순위표에도 이렇게 보여요</small></div>
+        <ol class="board-list deco-preview"><li id="deco-preview" class="board-row mine"><b>1</b><span></span><em>9,999점</em></li></ol>
+        <div class="shop-sec">명패 <small>순위 줄 전체가 바뀌어요</small></div>
+        <ol id="shop-plates" class="board-list shop-plates"></ol>
+        <div class="shop-sec">글씨 효과</div>
+        <div id="shop-texts" class="chips"></div>
+        <div class="shop-sec">엠블럼 <small>닉네임 앞 전용 도트 그림</small></div>
+        <div id="shop-embs" class="chips"></div>
+        <div class="shop-sec">칭호 <small>닉네임 아래 한 줄</small></div>
+        <div id="shop-titles" class="chips"></div>
+        <div id="shop-set" class="set"></div>
+        <p class="hangar-note">순위표 꾸미기는 한 번 사면 계속 쓸 수 있어요. 바꾸면 이번 주 순위표에도 바로 반영돼요.</p>
       </div>
       <p class="hangar-note">★별조각은 UFO·모선 격추, 친구 구출, 행성 도착, 오늘의 미션, 버틴 시간으로 모이고 게임오버에도 남아요.<br>✦ 깊은 궤도에서 같은 장식을 3번 먹으면 황금 각인 — 그 뒤로는 먹을 때마다 금빛으로 달려요.</p>
     </section>

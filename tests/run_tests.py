@@ -53,6 +53,7 @@ window.__nd = {
   stock: (m, l, d) => { masks = m; lives = l; doubleLeft = d; },
   hy: () => ({ masks, lives, doubleLeft, hyperLeft, hyperCharged, doll, refunds: pickups.filter((p) => p.refund).map((p) => p.type), mode }),
   setHyper: (v) => { hyperLeft = v; },
+  setModel: (m) => { shipModel = m; },
   skyTest: () => { obstacles = []; primaryGone = 5; tripT = 10; beatPlanFor = planetIdx; beatPlan = [7.5]; beatIdx = -1; invincible = 0; hyperLeft = 0; for (let i = 0; i < 3; i++) { obstacles = []; update(STEP); } return !!swirlOrb || flipOn(); },
   pebbleHit: () => { obstacles = []; invincible = 0; lives = 0; hyperLeft = 0; pebbles = [{ x: playerX + 4, y: playerY - 30, r: 8, vy: 200, vx: 0, spin: 0 }]; for (let i = 0; i < 20; i++) { obstacles = []; update(STEP); tick++; } return { mode, dents: dents.length, squish: !!squishText }; },
   pebbleCount: (sec) => { let seen = 0, made = 0; for (let i = 0; i < sec * 60; i++) { invincible = 999; const n = pebbleNo; update(STEP); tick++; if (pebbleNo > n) made++; } return made; },
@@ -680,6 +681,12 @@ async def main():
         await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*4,false)'); await pg.evaluate('__nd.ff(60*4,true)'); await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*5,false)'); await pg.wait_for_timeout(400)
         sub = [x for x in sent if x[0] == 'submit_daily']
         check('일반 판도 자유 비행 순위에 바로 등록', sub and sub[-1][1]['p_kind'] == 'free' and '자유 비행' in await pg.text_content('#rank-line'), await pg.text_content('#rank-line'))
+        import datetime as _dt
+        _k = _dt.datetime.utcnow() + _dt.timedelta(hours=9); _mon = (_k - _dt.timedelta(days=_k.weekday())).strftime('%Y-%m-%d')
+        check('자유 비행은 주간 순위(이번 주 월요일 날짜) · 결과에 "이번 주"', sub and sub[-1][1]['p_day'] == _mon and '이번 주' in await pg.text_content('#rank-line'), str(sub[-1][1]['p_day'] if sub else None) + ' vs ' + _mon)
+        await pg.wait_for_timeout(700); await pg.click('#rank-line'); await pg.wait_for_timeout(300)
+        check('순위표 자유 비행 탭: 이번 주 기간 안내', '이번 주' in await pg.text_content('#board-day') and '월요일' in await pg.text_content('#board-day'), await pg.text_content('#board-day'))
+        await pg.click('#board-close')
         await ctx.close()
         ctx = await b.new_context(viewport={'width': 390, 'height': 844}); pg = await ctx.new_page()
         await pg.route('https://rbtodhdjwumkmlnpdmcm.supabase.co/**', lambda r: r.abort())
@@ -713,7 +720,7 @@ async def main():
         check('운석 줄 에러 없음', not errs, '; '.join(errs[:3]))
         await pg.context.close()
 
-        print('27. 처음 설명 화면 · 닉네임 · 순위표 꾸미기')
+        print('27. 처음 설명 화면 · 닉네임 · 프리미엄 상점 · 주간 순위')
         ctx = await b.new_context(viewport={'width': 390, 'height': 844}); pg = await ctx.new_page(); errs = []; sent = []
         pg.on('pageerror', lambda e: errs.append(str(e)))
         await pg.route('https://rbtodhdjwumkmlnpdmcm.supabase.co/**', sb)
@@ -745,23 +752,32 @@ async def main():
         pg.on('pageerror', lambda e: errs.append(str(e)))
         await pg.route('https://rbtodhdjwumkmlnpdmcm.supabase.co/**', sb)
         await pg.goto(URL); await pg.evaluate("localStorage.setItem('neon-drift-nick','우주토끼')"); await pg.reload(); await pg.wait_for_timeout(300)
-        await pg.evaluate('__nd.setStars(500)')
+        await pg.evaluate('__nd.setStars(3000)')
         await pg.click('#hangar-open'); await pg.wait_for_timeout(200)
-        check('상점에 순위표 꾸미기(닉네임 색·배지·줄)', await pg.locator('#hangar-nickc button').count() >= 5 and await pg.locator('#hangar-badge button').count() >= 5 and await pg.locator('#hangar-frame button').count() >= 5)
-        for sel in ['#hangar-nickc button:nth-child(6)', '#hangar-badge button:nth-child(6)', '#hangar-frame button:nth-child(6)']:
-            await pg.click(sel); await pg.click(sel); await pg.wait_for_timeout(80)
-        stars_left = await pg.evaluate('__nd.getStars()')
-        check('두 번 눌러 구매 → ★ 줄어듦 (120+100+150)', stars_left == 500 - 370, str(stars_left))
+        check('상점 탭: 우주선 6종(등급 표시) · 쇼케이스', await pg.locator('#shop-models .shop-card').count() == 6 and await pg.locator('#shop-models .rar.r3').count() == 2 and await pg.is_visible('#shop-hero'))
+        await pg.click('#shop-models .shop-card:nth-child(3)'); await pg.wait_for_timeout(80)
+        check('카드 누르면 쇼케이스에 크게', '냥냥' in await pg.text_content('#shop-hero-name'))
+        await pg.click('#shop-hero-buy'); await pg.click('#shop-hero-buy'); await pg.wait_for_timeout(100)
+        st1 = await pg.evaluate('__nd.getStars()')
+        check('우주선 구매(두 번 눌러) → ★300 · 바로 장착', st1 == 2700 and '장착 중' in await pg.text_content('#shop-hero-buy'), str(st1))
+        await pg.click('#shop-tab-rank'); await pg.wait_for_timeout(100)
+        check('순위표 꾸미기 탭: 명패 5 · 글씨 · 엠블럼 · 칭호 · 세트', await pg.locator('#shop-plates li').count() == 5 and await pg.locator('#shop-texts .chip').count() >= 6 and await pg.locator('#shop-embs .chip').count() == 5 and await pg.locator('#shop-titles .chip').count() == 5 and await pg.is_visible('#shop-set'))
+        await pg.click('#shop-set-buy'); await pg.click('#shop-set-buy'); await pg.wait_for_timeout(100)
+        st2 = await pg.evaluate('__nd.getStars()')
+        check('황금 세트 20% 할인(★2,050 → ★1,640)', st2 == 2700 - 1640, str(st2))
+        await pg.click('#shop-titles .chip:nth-child(5)'); await pg.click('#shop-titles .chip:nth-child(5)'); await pg.wait_for_timeout(100)
         pv = await pg.get_attribute('#deco-preview', 'class')
-        check('미리보기 줄에 바로 반영', 'f-gold' in pv and await pg.locator('#deco-preview .badge').count() == 1, pv)
+        check('미리보기 줄에 황금 명패 · 엠블럼 · 황금 글씨 · 칭호', 'pl-royal' in pv and await pg.locator('#deco-preview img.emb').count() == 1 and await pg.locator('#deco-preview .tx-gold').count() == 1 and '최강' in await pg.text_content('#deco-preview'), pv)
         await pg.wait_for_timeout(800)
         prof = [x for x in sent if x[0] == 'set_profile']
-        check('꾸미기 바꾸면 오늘 내 순위에도 반영 요청', prof and prof[-1][1]['p_deco'] == 'n=gold;b=crown;f=gold', str(prof[-1][1] if prof else None))
-        await pg.click('#hangar-close')
+        check('꾸미기 바꾸면 이번 주 내 순위에도 반영 요청', prof and prof[-1][1]['p_deco'] == 'p=royal;t=gold;e=crown;h=cutest', str(prof[-1][1] if prof else None))
+        await pg.reload(); await pg.wait_for_timeout(300)
+        saved = await pg.evaluate("JSON.parse(localStorage.getItem('neon-drift-progress') || '{}')")
+        check('산 것·장착은 저장됨(새로고침해도 그대로)', saved.get('model') == 'gold' and saved.get('deco', {}).get('plate') == 'royal' and saved.get('skins', {}).get('model', {}).get('cat') is True, str(saved.get('model')))
         await pg.click('#start'); await pg.wait_for_timeout(200)
         await pg.evaluate('__nd.kill()'); await pg.wait_for_timeout(400)
         sub = [x for x in sent if x[0] == 'submit_daily']
-        check('순위 등록에 꾸미기 코드가 같이 감', sub and sub[-1][1]['p_deco'] == 'n=gold;b=crown;f=gold')
+        check('순위 등록에 꾸미기 코드가 같이 감 · 자유 비행은 이번 주 월요일 날짜', sub and sub[-1][1]['p_deco'] == 'p=royal;t=gold;e=crown;h=cutest' and sub[-1][1]['p_kind'] == 'free' and sub[-1][1]['p_day'] <= sub[-1][1]['p_day'])
         await pg.wait_for_timeout(700)
         await pg.evaluate("window.__boardDeco = true")
         await pg.click('#rank-line'); await pg.wait_for_timeout(300)
