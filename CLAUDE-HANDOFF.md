@@ -1,4 +1,4 @@
-# 뽀짝 우주 대탈출 (구 NEON DRIFT) — github.com/niaxcroknit/ppojjak · AI 작업 전달 메모 (v0.16)
+# 뽀짝 우주 대탈출 (구 NEON DRIFT) — github.com/niaxcroknit/ppojjak · AI 작업 전달 메모 (v0.17 — 최신 규칙은 AGENTS.md)
 
 > **최신 기준은 `AGENTS.md`예요.** 이 파일은 버전별 변경 기록이라 일부 규칙(예: 하이퍼 직접 발동, 장식이 다음 판에도 남음, 검사 78개)은 이후 버전에서 바뀌었어요.
 
@@ -66,7 +66,7 @@
 - 운석 사망 시 0.7초 hit-stop 연출(`mode === 'dying'`), 진동(`buzz()` → Android 브리지/`navigator.vibrate`), 칩튠 배경 음악(`bgmUpdate()`)
 - HUD 띠를 옅게 + 글자 그림자, 미발견 도감은 `?`, 추가 UFO가 직접 포획, 남은 이모지(타이틀·취향 아이콘) 도트화, 글자 크기 상향, 움직이는 운석 화살표, 메뉴 표시 중 HUD 숨김(작은 화면 겹침)
 - `?debug=1` 판 기록 패널, 오래된 WebView 안내
-- Android: minSdk 26, 렌더러 종료 자동 복구, 자동 백업 규칙, VIBRATE + JS 브리지
+- Android: minSdk 26, 렌더러 종료 자동 복구, 자동 백업 규칙, VIBRATE + INTERNET(순위 서버만) + JS 브리지
 - store/: 피처 그래픽, 스크린샷 5장, 개인정보처리방침, 등록 가이드
 
 ## v0.8에서 바뀐 것

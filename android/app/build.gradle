@@ -9,8 +9,8 @@ android {
         applicationId 'com.ppojjak.spaceescape'
         minSdk 26 // Android 8.0+ (진동 API·최신 WebView 기준)
         targetSdk 36 // Google Play: 2026-08-31부터 신규 앱·업데이트는 API 36 이상
-        versionCode 17 // 16은 이미 Play에 올라감 — 올릴 때마다 1씩 올리기
-        versionName '0.16.0'
+        versionCode 18 // 올릴 때마다 1씩 올리기 (v0.17)
+        versionName '0.17.0'
     }
 
     // 게임 원본은 저장소 루트의 web/ 폴더 하나뿐입니다. 복사하지 않고 그대로 assets로 묶습니다.

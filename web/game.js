@@ -16,6 +16,7 @@
 
   const $ = (id) => document.getElementById(id);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const wrap = (v, m) => ((v % m) + m) % m;
 
   // 앱(WebView)에서는 https://app.local/?app=1 로 열려 화면을 꽉 채웁니다.
   const APP = /[?&]app=1\b/.test(location.search);
@@ -156,6 +157,15 @@
   // 게이지가 차면 자동 발동(v0.13). 템을 잃는 대가는 자동 발동에선 꺼 둠 — 켜려면 HYPER_COST = true.
   const HYPER_COST = false;
   const HYPER_TIME = 4, HYPER_MUL = 2.4, HYPER_EASE = 0.5, HYPER_REFUND = 2;
+  // ═══ v0.17 손맛 · 재도전 ═══
+  // 몰림→반격 리듬: 행성마다 1~3번 '몰리는 구간'(CRUNCH초, 운석 줄이 촘촘) 뒤에 '반격 구간'(RELEASE초, 별탄 캡슐 + 게이지).
+  const CRUNCH = 6, RELEASE = 4, CRUNCH_ROW = 0.8, RELEASE_ROW = 1.35, RELEASE_GAUGE = 4;
+  // 역방향 비행: 몰리는 구간마다 주 UFO가 '빙글 구슬'을 한 번 쏨(예고 있음). 맞으면 FLIP_TIME초 거꾸로, 마지막 FLIP_WARN초는 복귀 카운트다운.
+  // 조작 방향은 그대로, 글자·버튼도 그대로. 전환·복귀 때 운석 정리 + FLIP_SAFE초 무적. (10초는 테스트용 초기값)
+  const FLIP_TIME = 10, FLIP_WARN = 5, FLIP_SAFE = 1.5, FLIP_SPIN = 0.36, ORB_SPEED = 210;
+  // 하루 랭킹(오늘의 코스) — Supabase. 공개(publishable) 키라 노출돼도 됨: 테이블은 막혀 있고 검증 함수로만 제출·조회.
+  const SB_URL = 'https://rbtodhdjwumkmlnpdmcm.supabase.co', SB_KEY = 'sb_publishable_kjtwpZzY9oQBFQV0AkcrFw_x88bLvyG';
+  const KEY_NICK = 'neon-drift-nick', KEY_DEVICE = 'neon-drift-device';
   const pace = () => clamp((height - 95) / REF_DIST, 0.55, 1);
 
   // ═══════════════════════════════════════════════════════════════
@@ -197,6 +207,9 @@
   let dyingLeft = 0, dieReason = '', deathFx = null, runStats, cause = '';
   let midDrop = null, forceGap = null, weaponPending = false; // 줄 사이 아이템 배치
   let hitStop = 0, shake = 0; // 들이받을 때 짧은 정지 · 화면 흔들림
+  let flipLeft = 0, flipSpin = 0, swirlOrb = null, swirlArmed = false, revScroll = 0; // 역방향 비행
+  let beatPlan = [], beatPlanFor = -1, beatState = 'calm', beatIdx = -1; // 몰림→반격 리듬
+  let bestBroken = false, overAt = 0, runBest = 0; // 재도전
   let hyperGauge = 0, hyperCharged = false, hyperLeft = 0, hyperEase = 0, hyperLost = [], spills = [], bgBoost = 0;
   let primaryHp = 10, primaryMax = 10, primaryGone = 0, primaryFlash = 0, escapes = [];
   let planetIdx = 0, tripT = 0, boss = null, orbs = [], rescue = null, bossSupply = 0, trail = [];
@@ -235,6 +248,7 @@
     dents = []; impactLeft = 0; impactSide = 1; bolts = [];
     weaponLeft = 0; weaponAt = 20; weaponDrop = null; shotClock = 0; bullets = []; weaponLv = 0;
     resumeLeft = 0; tut = null;
+    flipLeft = 0; flipSpin = 0; swirlOrb = null; swirlArmed = false; beatPlan = []; beatPlanFor = -1; beatState = 'calm'; beatIdx = -1; bestBroken = false; runBest = best;
   }
   resetRun();
 
@@ -634,6 +648,11 @@
     const fx = [];
     if (charmLeft > 0 && items[charm]) fx.push('{' + charm + '} ' + Math.ceil(charmLeft) + 's');
     if (hyperLeft > 0) fx.push('⚡ ' + hyperLeft.toFixed(1) + 's');
+    const fb = flipLeft > 0 && mode === 'playing' ? (flipLeft <= FLIP_WARN ? '정상 항로 복귀까지 ' + Math.ceil(flipLeft) + '…' : '거꾸로 비행 중 · 운석이 아래에서 와요') : '';
+    setText('flip-banner', fb); setFlag('flip-banner', 'hidden', !fb);
+    const fw = flipLeft > 0 && flipLeft <= FLIP_WARN;
+    if (uiCache.fw !== fw) { uiCache.fw = fw; $('flip-banner').classList.toggle('warn', fw); }
+    setAttr('beat-edge', 'class', 'beat-edge ' + (mode === 'playing' ? beatState : 'calm'));
     if (weaponLeft > 0) fx.push('★LV' + weaponLv + ' ' + weaponLeft.toFixed(1) + 's');
     if (doubleLeft > 0) fx.push('{crown} ×2 ' + Math.ceil(doubleLeft) + 's');
     if (magnetLeft > 0) fx.push('{cat} ' + Math.ceil(magnetLeft) + 's');
@@ -961,7 +980,7 @@
     playerX = targetX = S(width / 2);
     pickups = [{ x: width / 2, y: height - 230, type: 'rabbit', speed: 120 * pace() }]; // 첫 아이템은 항상 토끼 귀(목숨 +1)
     mode = 'playing';
-    $('panel').hidden = true; $('result').hidden = true; $('panel').classList.remove('over'); $('stage').classList.remove('menu');
+    $('panel').hidden = true; $('result').hidden = true; $('panel').classList.remove('over'); $('panel').classList.remove('quick'); $('stage').classList.remove('menu');
     $('pause').hidden = false; $('pause').textContent = 'Ⅱ';
     $('alien-panel').hidden = false; $('play-tools').hidden = false; $('scene-caption').hidden = true;
     $('run-stats').hidden = true; $('share').hidden = true; $('share-panel').hidden = true; $('next-goal').hidden = true; hideSplash();
@@ -976,7 +995,8 @@
     sync(); tone(540);
   }
   function show(message, label) {
-    $('panel').hidden = false; $('coach').hidden = true;
+    $('panel').hidden = false; $('coach').hidden = true; $('panel').classList.remove('quick');
+    for (const id of ['near-line', 'rank-line', 'nick-box', 'over-more']) $(id).hidden = true;
     $('message').textContent = message;
     $('start').innerHTML = label + ' <span>↗\uFE0E</span>';
     renderDaily();
@@ -1126,7 +1146,7 @@
     runDress = {}; runTrophy = {};
   }
   function die(reason, x, y, why) {
-    mode = 'dying'; dyingLeft = 0.9; dieReason = reason; cause = why;
+    mode = 'dying'; dyingLeft = 0.75; dieReason = reason; cause = why;
     dressLost = dressCount(); trophyLost = TROPHY_KEYS.some((k) => runTrophy[k]); shedDress();
     deathFx = { x, y, t: 0 };
     impactSide = x < playerX ? -1 : 1; impactLeft = 0.38;
@@ -1142,13 +1162,13 @@
     if (friendCount()) toast('친구들이 다시 잡혀갔어요…', 3);
     mode = 'over'; tone(110, 0.3);
     if (!cause) cause = '포획';
-    const isNew = score > best;
+    const prevBest = best, isNew = score > best;
     if (isNew) { best = score; store.set(KEY_BEST, String(best)); }
     $('pause').hidden = true; $('play-tools').hidden = true; $('alien-panel').hidden = true; $('scene-caption').hidden = true;
     show(reason || '운석과 부딪혔어요. 한 번 더?', '다시 도전');
     $('panel').classList.add('over');
     $('result').hidden = false;
-    $('result').textContent = score + ' POINTS' + (isNew ? ' · NEW BEST' : '');
+    $('result').textContent = '⏱ ' + fmtTime(Math.floor(elapsed)) + ' · ' + score.toLocaleString('ko-KR') + '점' + (isNew ? ' · NEW BEST' : '');
     // 이번 판 기록 — 핵심 3줄만 보이고 나머지는 '기록 더 보기'에 접어 둠(눈 피로 줄이기)
     const r = runStats;
     if (coins.length) { giveStars(coins.length); coins = []; } // 날아오던 별조각은 챙겨 드려요
@@ -1206,10 +1226,106 @@
       kills: r.kills, bosses: r.bosses, hypers: r.hypers, near: r.near, course, stars: runStars, secs: Math.floor(elapsed), pIdx: planetIdx, day: course ? Number(dayKey().replace(/-/g, '')) : 0 };
     shareText = buildShare();
     $('share').hidden = false; $('share').textContent = '카톡으로 자랑하기';
+    // v0.17 빠른 결과 띠: 아까움 한 줄 + (오늘의 코스면) 순위. 화면 아무 데나 톡 = 바로 다시.
+    $('near-line').textContent = nearLine(prevBest, isNew);
+    $('near-line').hidden = false;
+    $('over-more').hidden = false;
+    $('start').innerHTML = (course ? '오늘의 코스 다시' : '다시 도전') + ' <small>· 톡!</small> <span>↗\uFE0E</span>';
+    $('panel').classList.add('quick'); overAt = performance.now();
+    rankAfterRun(score, Math.floor(elapsed));
     runDress = {}; runTrophy = {}; runFriends = {}; lastDress = []; lastTrophy = []; // 게임오버: 이번 판에 얻은 것은 모두 날아감
     checkDaily(); logRun(); saveDaily(); renderDaily();
     sync();
   }
+  // 그 판에서 가장 아까운 것 한 줄
+  function nearLine(prevBest, isNew) {
+    const P = planet(), ko = (n) => Math.max(0, n).toLocaleString('ko-KR');
+    if (rival) return score > rival.score ? '친구 기록 돌파! +' + ko(score - rival.score) + '점' : '친구까지 ' + ko(rival.score - score) + '점!';
+    if (isNew) return prevBest > 0 ? '신기록! +' + ko(score - prevBest) + '점' : '첫 기록 ' + ko(score) + '점!';
+    if (boss && boss.hp / boss.max <= 0.4) return P.boss.short + ' 체력 ' + Math.max(1, Math.round((boss.hp / boss.max) * 100)) + '% 남았었어요!';
+    if (!boss && !rescue && P.len - tripT <= 6) return '모선까지 ' + Math.max(1, Math.ceil(P.len - tripT)) + '초 남았었어요!';
+    if (!hyperOn() && hyperGauge >= HYPER_GAUGE - 3) return '폭주까지 ' + (HYPER_GAUGE - hyperGauge) + '칸이었어요!';
+    return '최고 기록까지 ' + ko(best - score) + '점!';
+  }
+
+  // ═══ 하루 랭킹 (오늘의 코스) ═══
+  const deviceId = (() => {
+    let d = store.get(KEY_DEVICE);
+    if (!d || !/^[A-Za-z0-9_-]{8,64}$/.test(d)) {
+      d = ''; const ch = 'abcdefghijklmnopqrstuvwxyz0123456789';
+      for (let i = 0; i < 20; i++) d += ch.charAt(Math.floor(Math.random() * 36));
+      store.set(KEY_DEVICE, d);
+    }
+    return d;
+  })();
+  let nick = (store.get(KEY_NICK) || '').slice(0, 10), pendingRank = null;
+  async function rpc(fn, body) {
+    const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = setTimeout(() => { if (ctl) ctl.abort(); }, 7000);
+    try {
+      const res = await fetch(SB_URL + '/rest/v1/rpc/' + fn, { method: 'POST', headers: { apikey: SB_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ctl ? ctl.signal : undefined });
+      if (!res.ok) throw new Error('http ' + res.status);
+      return await res.json();
+    } finally { clearTimeout(timer); }
+  }
+  const ko = (n) => Number(n || 0).toLocaleString('ko-KR');
+  function rankLine(text) { $('rank-line').textContent = text; $('rank-line').hidden = false; }
+  function rankAfterRun(sc, secs) {
+    if (!course) { rankLine('오늘의 코스로 하면 하루 순위에 올라가요 ↗︎'); $('rank-line').dataset.act = 'course'; return; }
+    $('rank-line').dataset.act = 'board';
+    if (!nick) { pendingRank = { sc, secs }; showNickBox(); rankLine('닉네임을 정하면 오늘 순위에 올라가요'); return; }
+    submitRank(sc, secs);
+  }
+  function showNickBox() { $('nick-box').hidden = false; $('nick-input').value = nick; }
+  async function submitRank(sc, secs) {
+    rankLine('오늘 순위 올리는 중…');
+    try {
+      const r = await rpc('submit_daily', { p_day: dayKey(), p_device: deviceId, p_nick: nick, p_score: sc, p_secs: Math.max(1, secs) });
+      if (!r || !r.ok) {
+        const why = { nick: '닉네임은 1~10자로 해 주세요', nick_banned: '그 닉네임은 쓸 수 없어요 · 다른 걸로!', day: '오늘 순위는 한국 시간 기준이에요', score: '이 기록은 순위에 올릴 수 없어요' }[r && r.error] || '순위 등록에 실패했어요';
+        rankLine(why);
+        if (r && /nick/.test(r.error)) { pendingRank = { sc, secs }; showNickBox(); }
+        return;
+      }
+      pendingRank = null;
+      rankLine(r.rank === 1 ? '오늘 1위! · ' + r.total + '명 중 (내 최고 ' + ko(r.best) + '점)' : '오늘 ' + r.rank + '위 / ' + r.total + '명 · ' + (r.rank - 1) + '위까지 ' + ko(r.gap) + '점!');
+    } catch { rankLine('순위를 못 올렸어요 · 인터넷 연결을 확인해 주세요'); }
+  }
+  function saveNick() {
+    const v = ($('nick-input').value || '').replace(/\s+/g, ' ').trim().slice(0, 10);
+    if (!v) { $('nick-input').focus(); return; }
+    nick = v; store.set(KEY_NICK, nick);
+    $('nick-box').hidden = true;
+    if (pendingRank) submitRank(pendingRank.sc, pendingRank.secs);
+  }
+  let boardFrom = 'ready';
+  async function openBoard() {
+    if (!['ready', 'over', 'paused'].includes(mode)) return;
+    boardFrom = mode; mode = 'board'; keys.clear(); dragging = false;
+    $('panel').inert = true; $('pause').disabled = true; $('board').hidden = false; $('board-close').focus();
+    const list = $('board-list'); list.replaceChildren();
+    $('board-me').textContent = '불러오는 중…';
+    $('board-day').textContent = dayKey().slice(5).replace('-', '월 ') + '일 · 매일 밤 12시에 새로 시작';
+    try {
+      const r = await rpc('daily_board', { p_day: dayKey(), p_device: deviceId });
+      if (mode !== 'board') return;
+      for (const e of r.top || []) {
+        const li = document.createElement('li'); li.className = 'board-row' + (e.mine ? ' mine' : '');
+        li.innerHTML = '<b></b><span></span><em></em>';
+        li.children[0].textContent = e.rank; li.children[1].textContent = e.nick; li.children[2].textContent = ko(e.score) + '점';
+        list.append(li);
+      }
+      if (!(r.top || []).length) $('board-me').textContent = '아직 아무도 없어요 · 오늘 1등 기회!';
+      else if (r.me) $('board-me').textContent = '내 순위 ' + r.me.rank + '위 / ' + r.total + '명' + (r.me.gap ? ' · ' + (r.me.rank - 1) + '위까지 ' + ko(r.me.gap) + '점' : ' · 1등!');
+      else $('board-me').textContent = '오늘의 코스를 하면 순위에 올라가요 · ' + r.total + '명 도전 중';
+    } catch { if (mode === 'board') $('board-me').textContent = '순위를 불러오지 못했어요 · 인터넷 연결을 확인해 주세요'; }
+  }
+  function closeBoard() {
+    if (mode !== 'board') return;
+    $('board').hidden = true; $('panel').inert = false; $('pause').disabled = false;
+    mode = boardFrom; keys.clear(); sync();
+  }
+
   function useMask() {
     if (mode !== 'playing' || resumeLeft > 0 || masks < 1 || masked > 0) return;
     masks--; masked = 4; runStats.masks++; buzz(15);
@@ -1223,6 +1339,7 @@
     if (!$('share-panel').hidden) { closeShare(); return true; }
     if (mode === 'book') { closeBook(); return true; }
     if (mode === 'journey') { closeJourney(); return true; }
+    if (mode === 'board') { closeBoard(); return true; }
     if (mode === 'hangar') { closeHangar(); return true; }
     if (mode === 'playing' || mode === 'capture') { pause(); return true; }
     if (mode === 'dying') return true;
@@ -1406,7 +1523,7 @@
     if (weaponDrop) {
       weaponDrop.y += weaponDrop.speed * (slowLeft > 0 ? 0.55 : 1) * worldMul() * dt;
       if (Math.hypot(weaponDrop.x - playerX, weaponDrop.y - playerY) < 34) armWeapon();
-      else if (weaponDrop.y > height + 30) weaponDrop = null;
+      else if (weaponDrop.y > height + 30 || weaponDrop.y < -70) weaponDrop = null;
     }
     if (weaponLeft > 0) {
       weaponLeft = Math.max(0, weaponLeft - dt);
@@ -1414,16 +1531,17 @@
       else {
         shotClock -= dt;
         if (shotClock <= 0) {
-          for (const side of [-1, 1]) bullets.push({ x: playerX + side * 24, y: playerY - 20, vx: 0, life: 1.5 });
-          if (weaponLv >= 2) for (const side of [-1, 1]) bullets.push({ x: playerX + side * 28, y: playerY - 14, vx: side * 120, life: 1.5, diag: true });
-          if (weaponLv >= 3) bullets.push({ x: playerX, y: playerY - 34, vx: 0, life: 1.5, dmg: 2, big: true });
+          const dy = dirY(); // 역방향이면 아래로 발사
+          for (const side of [-1, 1]) bullets.push({ x: playerX + side * 24, y: playerY - 20 * dy, vx: 0, life: 1.5, dy });
+          if (weaponLv >= 2) for (const side of [-1, 1]) bullets.push({ x: playerX + side * 28, y: playerY - 14 * dy, vx: side * 120, life: 1.5, diag: true, dy });
+          if (weaponLv >= 3) bullets.push({ x: playerX, y: playerY - 34 * dy, vx: 0, life: 1.5, dmg: 2, big: true, dy });
           shotClock += 0.2; tone(weaponLeft < 3 ? 500 : 650, 0.025);
         }
       }
     }
     primarySpin = Math.max(0, primarySpin - dt);
     for (const b of bullets) {
-      b.y -= 420 * dt; b.x += (b.vx || 0) * dt; b.life -= dt;
+      b.y -= 420 * dt * (b.dy || 1); b.x += (b.vx || 0) * dt; b.life -= dt;
       let hit = false;
       const dmg = b.dmg || 1, br = b.big ? 29 : 23;
       const rock = obstacles.find((o) => Math.hypot(b.x - o.x - 17, b.y - o.y - 17) < br);
@@ -1438,9 +1556,10 @@
         const v = visitors.find((v) => !v.dead && v.grace <= 0 && Math.hypot((b.x - v.x) / 43, (b.y - v.y) / 28) < 1);
         if (v) { v.y = Math.max(150, v.y - 4); burst(b.x, b.y - 6, '#ffdf9d'); damageVisitor(v, dmg); hit = true; }
       }
+      if (!hit && swirlOrb && Math.hypot(b.x - swirlOrb.x, b.y - swirlOrb.y) < 18) { popOrb(); hit = true; } // 빙글 구슬도 쏴서 터뜨림
       if (hit) b.life = 0;
     }
-    bullets = bullets.filter((b) => b.life > 0 && b.y > 115 && b.x > -20 && b.x < width + 20);
+    bullets = bullets.filter((b) => b.life > 0 && ((b.dy || 1) > 0 ? b.y > 115 : b.y < height - 40) && b.x > -20 && b.x < width + 20);
     visitors = visitors.filter((v) => !v.dead);
     primaryFlash = Math.max(0, primaryFlash - dt);
     score = Math.floor(points);
@@ -1454,6 +1573,7 @@
     return masked > 0 ? taste === 2 : charmLeft > 0 && items[charm]?.group === tastes[taste].type;
   }
   function capture(hitX = ufoX, hitY = ufoY, guest = null) {
+    if (flipOn()) endFlip(true);
     if (doll) dentShip(hitX, hitY);
     captureBy = guest; cause = guest && guest.boss ? '모선 집게' : guest ? '추가 UFO' : '주 UFO'; buzz(80);
     mode = 'capture'; sceneTime = 0; sceneX = playerX; sceneY = playerY; sceneReturn = doll ? 'playing' : 'over';
@@ -1483,15 +1603,27 @@
     alienClock += dt;
     if (hidden) {
       alienPhase = 'retreat'; primaryNear.armed = false;
-      ufoY += (170 - ufoY) * (1 - Math.exp(-2.2 * dt));
+      ufoY += ((flipOn() ? height - 125 : 170) - ufoY) * (1 - Math.exp(-2.2 * dt));
       ufoX = clamp(ufoX + Math.sin(elapsed * 2) * 35 * dt, 42, width - 42);
       return;
     }
     if (alienPhase === 'retreat') { alienPhase = 'patrol'; alienClock = 0; }
     const fast = stage >= 2; // 후반에는 조준 간격이 짧아집니다
     const early = elapsed < 30 ? 1.4 : 1; // 처음 30초는 조준 간격을 길게(숨 돌릴 시간)
-    if (alienPhase === 'patrol') {
-      const tx = width / 2 + Math.sin(elapsed * 1.1) * Math.max(20, width / 2 - 55), span = Math.max(30, minY() - 160), ty = 160 + span * 0.4 + Math.sin(elapsed * 0.9) * Math.min(45, span * 0.38);
+    if (alienPhase === 'patrol' && swirlReady()) {
+      alienPhase = 'swirl'; alienClock = 0; swirlArmed = false; dashX = playerX; dashY = playerY;
+      tip('swirl', '{swirl} 빙글 구슬! 맞으면 10초 동안 거꾸로 비행 · 피하거나 별탄으로 터뜨려요');
+    } else if (alienPhase === 'swirl') {
+      // 빙글 구슬 예고: 멈칫하며 조준(0.55초까지 기체를 따라봄) → 1.05초에 발사. 점선과 빙글 고리로 보여 줌.
+      if (alienClock < 0.55) { dashX = playerX; dashY = playerY; }
+      if (alienClock > 1.05) {
+        const dx = dashX - ufoX, dy = dashY - ufoY, d = Math.hypot(dx, dy) || 1, sp = ORB_SPEED * pace();
+        swirlOrb = { x: ufoX, y: ufoY + 14 * Math.sign(dy || 1), vx: (dx / d) * sp, vy: (dy / d) * sp, t: 0 };
+        alienPhase = 'recover'; alienClock = 0; tone(720, 0.1);
+      }
+    } else if (alienPhase === 'patrol') {
+      const tx = width / 2 + Math.sin(elapsed * 1.1) * Math.max(20, width / 2 - 55), span = Math.max(30, minY() - 160), ty0 = 160 + span * 0.4 + Math.sin(elapsed * 0.9) * Math.min(45, span * 0.38);
+      const ty = flipOn() ? height - 115 - (ty0 - 160) : ty0; // 역방향: 아래쪽에서 맴돎
       ufoX += (tx - ufoX) * (1 - Math.exp(-1.7 * dt));
       ufoY += (ty - ufoY) * (1 - Math.exp(-1.5 * dt));
       // 귀여울수록 위험: 함께 다니는 친구 1명당 조준 간격 -0.15초
@@ -1511,7 +1643,7 @@
       ufoY = clamp(ufoY + dashVY * dt, 160, height - 115);
       if (alienClock > 1.25) { alienPhase = 'recover'; alienClock = 0; }
     } else if (alienPhase === 'recover') {
-      ufoY += (160 + Math.max(30, minY() - 160) * 0.22 - ufoY) * (1 - Math.exp(-1.6 * dt));
+      const ry = 160 + Math.max(30, minY() - 160) * 0.22; ufoY += ((flipOn() ? height - 115 - (ry - 160) : ry) - ufoY) * (1 - Math.exp(-1.6 * dt));
       ufoX += (width / 2 - ufoX) * dt * 0.4;
       if (alienClock > 1.6) { alienPhase = 'patrol'; alienClock = 0; }
     }
@@ -1777,7 +1909,7 @@
     FRIEND_KEYS.filter((k) => runFriends[k]).forEach((k, i) => {
       const p = trail[Math.max(0, trail.length - 1 - 10 * (i + 1))] || [playerX, playerY];
       const side = i % 2 ? 1 : -1;
-      ctx.save(); ctx.translate(S(p[0] + side * (34 + 6 * i)), S(p[1] + 26 + Math.sin(tick / 12 + i) * 3)); ctx.scale(0.75, 0.75);
+      ctx.save(); ctx.translate(S(p[0] + side * (34 + 6 * i)), S(p[1] + 26 * dirY() + Math.sin(tick / 12 + i) * 3)); ctx.scale(0.75, 0.75);
       drawIcon(ctx, k); ctx.restore();
     });
   }
@@ -1971,6 +2103,110 @@
     tone(880, 0.15); sync();
   }
 
+  // ═══════════════════════════════════════════════════════════════
+  // 14-B. v0.17 몰림→반격 리듬 · 역방향 비행
+  // ═══════════════════════════════════════════════════════════════
+  // 행성마다 1~3번(오늘의 코스는 모두 같음). 행성 시작 직후와 모선 직전은 비워 둠.
+  function planBeats() {
+    const P = planet(), n = 1 + Math.floor(rnd(9300 + planetIdx, 1) * 3), span = (P.len * 0.66) / n;
+    beatPlan = [];
+    for (let k = 0; k < n; k++) beatPlan.push(Math.max(P.len * 0.18, P.len * 0.2 + span * (k + 0.5) - (CRUNCH + RELEASE) / 2));
+    beatPlanFor = planetIdx; beatIdx = -1; beatState = 'calm';
+  }
+  function beatAt(t) {
+    for (let k = 0; k < beatPlan.length; k++) {
+      const s0 = beatPlan.at(k);
+      if (t >= s0 && t < s0 + CRUNCH) return ['crunch', k];
+      if (t >= s0 + CRUNCH && t < s0 + CRUNCH + RELEASE) return ['release', k];
+    }
+    return ['calm', -1];
+  }
+  function updateBeats() {
+    if (tut || boss || rescue) { beatState = 'calm'; beatIdx = -1; return; }
+    if (beatPlanFor !== planetIdx) planBeats();
+    const [st, k] = beatAt(tripT);
+    if (st === beatState && k === beatIdx) return;
+    beatState = st; beatIdx = k;
+    if (st === 'crunch') { swirlArmed = true; if (!flipOn()) toast('☄ 몰려온다! 버텨!', 2); tone(260, 0.12); }
+    if (st === 'release') {
+      toast('★ 반격 타임!', 2); tone(988, 0.12);
+      if (!weaponDrop && weaponLeft <= 0) weaponPending = true; // 바로 별탄 캡슐
+      addGauge(RELEASE_GAUGE);
+    }
+  }
+  // 빙글 구슬: 몰리는 구간이 시작되고 0.8초 뒤, 주 UFO가 있을 때만 한 번
+  function swirlReady() {
+    return swirlArmed && beatState === 'crunch' && !flipOn() && !hyperOn() && !tut && !boss && primaryGone <= 0 && primaryStun <= 0
+      && tripT >= beatPlan.at(beatIdx) + 0.8 && !swirlOrb;
+  }
+  function popOrb() {
+    if (!swirlOrb) return;
+    burst(swirlOrb.x, swirlOrb.y, '#c9b5f4'); burst(swirlOrb.x, swirlOrb.y, '#fff1aa');
+    points += 15; swirlOrb = null; toast('구슬 펑! 휴~', 1.4); tone(1046, 0.08);
+  }
+  function clearRocks() {
+    for (const o of obstacles) if (o.y > -20 && o.y < height + 20) burst(o.x + 17, o.y + 17, '#d8c7ec');
+    obstacles = [];
+  }
+  // 전환 순간 UFO들도 반대편으로(기체와 길이 엇갈려 억울하게 잡히지 않게)
+  function mirrorAliens() {
+    ufoY = clamp(height - ufoY, 160, height - 115); alienPhase = 'recover'; alienClock = 0; primaryNear.armed = false;
+    for (const v of visitors) { v.y = clamp(height - v.y, 160, height - 115); v.vy = -v.vy; v.grace = Math.max(v.grace, 1.5); v.armed = false; }
+  }
+  function startFlip() {
+    if (flipOn() || mode !== 'playing') return;
+    flipLeft = FLIP_TIME; flipSpin = FLIP_SPIN; runStats.flips = (runStats.flips || 0) + 1;
+    invincible = Math.max(invincible, FLIP_SAFE);
+    clearRocks();
+    for (const p of pickups) p.speed = -Math.abs(p.speed || 120 * pace());
+    if (weaponDrop) weaponDrop.speed = -Math.abs(weaponDrop.speed);
+    midDrop = null; forceGap = null; spawn = Math.max(spawn, 0.9);
+    targetY = toRev(playerY); clampTarget(); mirrorAliens();
+    splash('{swirl} 뒤집혔다!!', '운석이 아래에서 와요 · 별탄도 아래로 · 조작은 그대로', 'boss', 1.8);
+    tone(300, 0.2); setTimeout(() => tone(200, 0.2), 120); buzz(70); shake = 0.25;
+    sync();
+  }
+  // silent = 포획·게임오버 등으로 바로 끝낼 때(연출 없음)
+  function endFlip(silent) {
+    const was = flipLeft > 0 || silent !== true;
+    flipLeft = 0; swirlOrb = null; flipSpin = silent ? 0 : FLIP_SPIN;
+    if (silent) { targetY = toNorm(playerY); return; }
+    if (!was) return;
+    invincible = Math.max(invincible, FLIP_SAFE);
+    clearRocks();
+    for (const p of pickups) p.speed = Math.abs(p.speed || 120 * pace());
+    if (weaponDrop) weaponDrop.speed = Math.abs(weaponDrop.speed);
+    midDrop = null; forceGap = null; spawn = Math.max(spawn, 0.9);
+    targetY = toNorm(playerY); clampTarget(); mirrorAliens();
+    splash('정상 항로 복귀!', '잠깐 무적 · 운석이 다시 위에서 와요', 'hyper', 1.2);
+    tone(880, 0.12); setTimeout(() => tone(1175, 0.14), 100); buzz(30);
+  }
+  function updateFlip(dt) {
+    if (swirlOrb) {
+      const o = swirlOrb;
+      o.x += o.vx * dt; o.y += o.vy * dt; o.t += dt;
+      if (Math.hypot(o.x - playerX, o.y - playerY) < 20) {
+        if (hyperOn()) popOrb();
+        else if (invincible <= 0) { swirlOrb = null; startFlip(); }
+      }
+      if (swirlOrb && (o.x < -30 || o.x > width + 30 || o.y < -30 || o.y > height + 30 || o.t > 6)) swirlOrb = null;
+    }
+    if (flipSpin > 0) flipSpin = Math.max(0, flipSpin - dt);
+    if (flipLeft > 0) {
+      const before = Math.ceil(flipLeft);
+      flipLeft = Math.max(0, flipLeft - dt);
+      revScroll += dt * 2000 * worldMul(); // 배경 별도 위로 흐름
+      if (flipLeft > 0 && flipLeft <= FLIP_WARN && Math.ceil(flipLeft) !== before) tone(520 + (5 - Math.ceil(flipLeft)) * 90, 0.06);
+      if (flipLeft === 0) endFlip(false);
+    }
+  }
+  // 기체가 반 바퀴 도는 각도(도트 느낌으로 45°씩)
+  function flipAngle() {
+    const f = FLIP_SPIN > 0 ? flipSpin / FLIP_SPIN : 0;
+    const a = flipOn() ? Math.PI * (1 - f) : Math.PI * f;
+    return Math.round(a / (Math.PI / 4)) * (Math.PI / 4);
+  }
+
   function stageAt(t) { let s = 0; for (let i = 0; i < STAGES.length; i++) if (t >= STAGES[i].at) s = i; return s; }
   // 운석 줄 낙하 속도(시간에 따라 상승 · 화면 크기 보정)
   function rowSpeed() {
@@ -1980,19 +2216,19 @@
   function row(interval) {
     rowNumber++;
     const late = Math.max(0, elapsed - 70); // 70초 이후 완만하게 계속 상승
-    const gap = Math.max(116, 138 - late * 0.25);
+    const gap = Math.max(108, 138 - late * 0.25 - (beatState === 'crunch' ? 8 : 0)); // 몰리는 구간은 빈칸이 조금 좁음
     // 바로 앞에 아이템이 있으면, 이 줄의 빈칸을 아이템 위치에 맞춥니다(먹고 그대로 지나갈 수 있게).
     const forced = forceGap !== null;
     const gapX = forced ? clamp(forceGap - gap / 2, 22, Math.max(22, width - gap - 22)) : 22 + rnd(rowNumber, 1) * Math.max(1, width - gap - 44);
     forceGap = null;
-    const speed = rowSpeed();
+    const speed = rowSpeed() * dirY(), y0 = flipOn() ? height + 6 : -40; // 역방향이면 아래에서 올라옴
     for (let x = 18; x < width - 12; x += 38) {
       if (x + 17 > gapX && x - 17 < gapX + gap) continue;
-      obstacles.push({ x: x - 17, y: -40, w: 34, h: 34, speed, spin: Math.random() * 6.28, vx: 0, close: false, grazed: false });
+      obstacles.push({ x: x - 17, y: y0, w: 34, h: 34, speed, spin: Math.random() * 6.28, vx: 0, close: false, grazed: false });
     }
     const moverEvery = stage >= 3 ? 1 : stage >= 2 ? 2 : 3;
     if (!forced && (rowNumber % moverEvery === moverEvery - 1 || moverEvery === 1)) {
-      const candidates = obstacles.filter((o) => o.y === -40);
+      const candidates = obstacles.filter((o) => o.y === y0);
       const rock = candidates[Math.floor(rnd(rowNumber, 2) * candidates.length)];
       if (rock) rock.vx = (rock.x < width / 2 ? 1 : -1) * (34 + rnd(rowNumber, 3) * 22);
     }
@@ -2009,10 +2245,10 @@
     const off = m.kind === 'weapon' ? (rnd(rowNumber, 4) < 0.5 ? -1 : 1) * (60 + rnd(rowNumber, 5) * 100) : (rnd(rowNumber, 5) - 0.5) * 220;
     const x = clamp(m.from + off, 40, width - 40);
     if (m.kind === 'weapon') {
-      weaponDrop = { x, y: -40, speed: rowSpeed() }; // 앞뒤 줄 속도의 중간값 → 줄 사이 한가운데 유지
+      weaponDrop = { x, y: flipOn() ? height + 6 : -40, speed: rowSpeed() * dirY() }; // 앞뒤 줄 속도의 중간값 → 줄 사이 한가운데 유지
       if (tips.weapon) toast('★ 별탄 캡슐!');
       else tip('weapon', '★ 캡슐 먹으면 10초간 별탄 자동 발사');
-    } else pickups.push({ x, y: -40, type: nextItem(), speed: rowSpeed() });
+    } else pickups.push({ x, y: flipOn() ? height + 6 : -40, type: nextItem(), speed: rowSpeed() * dirY() });
     forceGap = x + (rnd(rowNumber, 6) - 0.5) * 40; // 다음 줄 빈칸 중심 = 아이템 위치 ±20px
   }
 
@@ -2023,7 +2259,13 @@
   const minY = () => Math.max(190, height * 0.38), maxY = () => height - 105;
   // 하이퍼 중에는 위쪽 한계만 넓어집니다(HUD 아래까지). 이동 방식·속도는 원본 그대로.
   const topY = () => (hyperLeft > 0 ? HUD_BAND + 40 : minY());
-  function clampTarget() { targetX = clamp(targetX, 24, width - 24); targetY = clamp(targetY, topY(), maxY()); }
+  // 역방향 비행: 우주선은 화면 위쪽 같은 높이 폭 안에서 움직입니다(이동 방식·속도는 그대로).
+  const flipOn = () => flipLeft > 0;
+  const dirY = () => (flipLeft > 0 ? -1 : 1); // 세상이 흐르는 방향(1 = 아래로, -1 = 위로)
+  const revTop = () => HUD_BAND + 40, revBot = () => revTop() + (maxY() - minY());
+  const toRev = (y) => clamp(revTop() + (maxY() - y), revTop(), revBot());
+  const toNorm = (y) => clamp(maxY() - (y - revTop()), minY(), maxY());
+  function clampTarget() { targetX = clamp(targetX, 24, width - 24); targetY = flipOn() ? clamp(targetY, revTop(), revBot()) : clamp(targetY, topY(), maxY()); }
   function stepPlayer() {
     playerX += clamp(S(targetX) - playerX, -DRAG_SPEED, DRAG_SPEED);
     playerY += clamp(S(targetY) - playerY, -DRAG_SPEED, DRAG_SPEED);
@@ -2073,6 +2315,7 @@
     for (const sp of spills) { sp.x += sp.vx * dt; sp.y += sp.vy * dt; sp.vy += 420 * dt; sp.spin += dt * 9; sp.life -= dt; }
     spills = spills.filter((sp) => sp.life > 0);
     if (!tut) points += dt * 10 * (doubleLeft > 0 ? 2 : 1) * (hyperLeft > 0 ? 2 : 1);
+    if (!tut && !bestBroken && runBest > 0 && points > runBest) { bestBroken = true; splash('최고 기록 돌파!!', '여기부터는 매 초가 신기록', 'win', 1.6); tone(1046, 0.15); }
     if (rival && !rival.beaten && points > rival.score) { rival.beaten = true; splash('친구 기록 돌파!!', rival.score.toLocaleString('ko-KR') + '점을 넘었어요 · 더 멀리!', 'win', 2); }
     score = Math.floor(points);
     itemClock -= dt;
@@ -2087,9 +2330,10 @@
     const kx = Number(keys.has('ArrowRight') || keys.has('KeyD')) - Number(keys.has('ArrowLeft') || keys.has('KeyA'));
     const ky = Number(keys.has('ArrowDown') || keys.has('KeyS')) - Number(keys.has('ArrowUp') || keys.has('KeyW'));
     if (kx || ky) { targetX = playerX + kx * KEY_SPEED; targetY = playerY + ky * KEY_SPEED; clampTarget(); }
-    if (hyperLeft <= 0 && targetY < minY()) targetY = minY(); // 하이퍼가 끝나면 원래 높이로 (보통 속도로 내려옴)
+    if (!flipOn() && hyperLeft <= 0 && targetY < minY()) targetY = minY(); // 하이퍼가 끝나면 원래 높이로 (보통 속도로 내려옴)
     stepPlayer();
     if (tut) updateTutorial(dt);
+    updateBeats(); updateFlip(dt); if (mode !== 'playing') return;
 
     updateCombat(dt);
     if (!tut) updateBoss(dt); if (mode !== 'playing') return;
@@ -2107,7 +2351,7 @@
     // 하이퍼 중에는 줄도 그만큼 빨리 옴(간격 유지). 모선전에는 운석 줄을 30% 줄여 보스에 집중.
     const slowSpawn = (slowLeft > 0 ? 0.55 : 1) * wm * (boss ? 0.7 : 1);
     if (!tut) spawn -= dt * slowSpawn;
-    if (spawn <= 0) { const interval = Math.max(elapsed < 100 ? 0.85 : 0.72, 1.65 - elapsed * 0.008); row(interval); spawn = interval; }
+    if (spawn <= 0) { const interval = Math.max(elapsed < 100 ? 0.85 : 0.72, 1.65 - elapsed * 0.008) * (beatState === 'crunch' ? CRUNCH_ROW : beatState === 'release' ? RELEASE_ROW : 1); row(interval); spawn = interval; }
     if (midDrop) { midDrop.at -= dt * slowSpawn; if (midDrop.at <= 0) spawnMidDrop(); }
     const py = playerY, slow = (slowLeft > 0 ? 0.55 : 1) * wm;
 
@@ -2119,7 +2363,7 @@
       }
       if (Math.hypot(playerX - item.x, py - item.y) < 35) { collect(item.type, !!item.refund); item.y = height + 100; }
     }
-    pickups = pickups.filter((i) => i.y < height + 40);
+    pickups = pickups.filter((i) => i.y < height + 40 && i.y > -80);
 
     for (const o of obstacles) {
       const step = dt * slow;
@@ -2137,12 +2381,12 @@
       }
       // 근접 회피: 가까이 스친 운석이 부딪히지 않고 기체 아래로 지나간 뒤에만 보너스
       if (d2 < 46 ** 2 && invincible <= 0) o.close = true;
-      if (o.close && !o.grazed && o.y + 17 > py + 30) { o.grazed = true; graze(o.x + 17, o.y + 17); }
+      if (o.close && !o.grazed && (o.speed >= 0 ? o.y + 17 > py + 30 : o.y + 17 < py - 30)) { o.grazed = true; graze(o.x + 17, o.y + 17); }
     }
-    obstacles = obstacles.filter((o) => o.y < height + 40);
+    obstacles = obstacles.filter((o) => o.y < height + 40 && o.y > -80);
 
-    if (tick % 3 === 0) particles.push({ x: playerX + (Math.random() - 0.5) * 5, y: py + 32, life: 1 });
-    for (const p of particles) { p.y += 90 * dt; p.life -= dt * 2; }
+    if (tick % 3 === 0) particles.push({ x: playerX + (Math.random() - 0.5) * 5, y: py + 32 * dirY(), life: 1, vy: 90 * dirY() });
+    for (const p of particles) { p.y += (p.vy || 90) * dt; p.life -= dt * 2; }
     particles = particles.filter((p) => p.life > 0);
     sync();
   }
@@ -2281,6 +2525,7 @@
     if (invincible > 0 && mode === 'playing' && (tick >> 2) & 1) return;
     const inHangar = mode === 'hangar';
     ctx.save(); ctx.translate(x, y);
+    if (!inHangar) { const fa = flipAngle(); if (fa) ctx.rotate(fa); } // 역방향: 반 바퀴
     if (!inHangar && impactLeft > 0) { const p = impactLeft / 0.38; ctx.scale(1 + 0.17 * p, 1 - 0.2 * p); ctx.rotate(-impactSide * 0.13 * p); }
     dressBack(t);
     const flameLen = ((tick >> 3) & 1 ? 4 : 0) + (hyperLeft > 0 && !inHangar ? 14 + ((tick >> 2) & 1) * 6 : 0); // 2프레임 불꽃 (하이퍼: 길게)
@@ -2370,20 +2615,20 @@
     ctx.fillStyle = P.bg; ctx.fillRect(0, 0, width, height);
     // 배경 별: 도트 1칸짜리, 반짝임도 두 단계로만
     for (let i = 0; i < 55; i++) {
-      const tt = t + bgBoost * (1 + (i % 3));
-      const x = S((i * 137.31) % width), y = S((i * 83.71 + tt * (0.007 + (i % 3) * 0.004)) % height);
+      const tt = t + bgBoost * (1 + (i % 3)) - revScroll;
+      const x = S((i * 137.31) % width), y = S(wrap(i * 83.71 + tt * (0.007 + (i % 3) * 0.004), height));
       if (worldMul() > 1.05) { ctx.globalAlpha = 0.6; ctx.fillStyle = '#d9d2f8'; ctx.fillRect(x, y - 30 * (worldMul() - 1), PX, 30 * (worldMul() - 1)); continue; }
       ctx.globalAlpha = Math.sin(t * 0.002 + i) > 0.3 ? 0.75 : 0.35;
       if (i % 9 === 0) star(x, y, 4, '#ffe6aa'); else { ctx.fillStyle = '#d9d2f8'; ctx.fillRect(x, y, PX, PX); }
     }
     ctx.globalAlpha = 1;
-    const planetY = S(((80 + (t + bgBoost) * 0.005) % (height + 160)) - 80);
+    const planetY = S(wrap(80 + (t + bgBoost - revScroll) * 0.005, height + 160) - 80);
     ctx.save(); ctx.translate(S(width - 52), planetY); ctx.rotate(-0.4);
     ellipse(0, 0, 30, 30, P.pl);
     ctx.strokeStyle = '#b4a0ce'; ctx.lineWidth = 6; ctx.beginPath(); ctx.ellipse(0, 0, 47, 10, 0, 0, Math.PI * 2); ctx.stroke();
     ctx.beginPath(); ctx.arc(0, 0, 30, Math.PI, Math.PI * 2); ctx.fillStyle = P.pl2; ctx.fill();
     ellipse(-11, -13, 6, 4, '#a694c4'); ctx.restore();
-    const moonY = S(((height * 0.56 + (t + bgBoost) * 0.009) % (height + 120)) - 60);
+    const moonY = S(wrap(height * 0.56 + (t + bgBoost - revScroll) * 0.009, height + 120) - 60);
     ellipse(36, moonY, 19, 19, '#415e79'); ellipse(30, moonY - 6, 5, 5, '#344e69'); ellipse(42, moonY + 5, 3, 3, '#344e69');
   }
   function drawRocks() {
@@ -2429,9 +2674,10 @@
       labels.push({ s: '★', x, y: y - 30, font: '14px monospace', color: '#ffe39b' });
     }
     for (const b of bullets) {
-      if (b.big) { ctx.fillStyle = '#f6d47a88'; ctx.fillRect(S(b.x) - 3, S(b.y) + 7, 6, 16); star(S(b.x), S(b.y), 11, '#ffe6a0'); ellipse(S(b.x), S(b.y), 3, 3, '#ffffff'); }
-      else if (b.diag) { ctx.fillStyle = '#a5f8d588'; ctx.fillRect(S(b.x - (b.vx > 0 ? 6 : -6)) - 2, S(b.y) + 4, 4, 8); star(S(b.x), S(b.y), 5, '#c9fff0'); }
-      else { ctx.fillStyle = '#f4b98c'; ctx.fillRect(S(b.x) - 2, S(b.y) + 5, 4, 10); star(S(b.x), S(b.y), 6, '#fff1a5'); }
+      const up = (b.dy || 1) > 0; // 꼬리는 날아가는 반대쪽
+      if (b.big) { ctx.fillStyle = '#f6d47a88'; ctx.fillRect(S(b.x) - 3, S(b.y) + (up ? 7 : -23), 6, 16); star(S(b.x), S(b.y), 11, '#ffe6a0'); ellipse(S(b.x), S(b.y), 3, 3, '#ffffff'); }
+      else if (b.diag) { ctx.fillStyle = '#a5f8d588'; ctx.fillRect(S(b.x - (b.vx > 0 ? 6 : -6)) - 2, S(b.y) + (up ? 4 : -12), 4, 8); star(S(b.x), S(b.y), 5, '#c9fff0'); }
+      else { ctx.fillStyle = '#f4b98c'; ctx.fillRect(S(b.x) - 2, S(b.y) + (up ? 5 : -15), 4, 10); star(S(b.x), S(b.y), 6, '#fff1a5'); }
     }
     for (const bolt of bolts) {
       ctx.save(); ctx.translate(S(bolt.x), S(bolt.y)); ctx.rotate(bolt.life * 14);
@@ -2504,6 +2750,20 @@
         }
         ctx.globalAlpha = 1;
       }
+      if (alienPhase === 'swirl' && mode === 'playing' && !boss && primaryGone <= 0) {
+        // 빙글 구슬 예고: 보라 점선 + UFO 주위 빙글 고리
+        const ax = S(dashX), ay = S(dashY);
+        ctx.save(); ctx.strokeStyle = '#c9b5f4cc'; ctx.lineWidth = 2; ctx.setLineDash([4, 6]);
+        ctx.beginPath(); ctx.moveTo(S(ufoX), S(ufoY)); ctx.lineTo(ax, ay); ctx.stroke(); ctx.setLineDash([]);
+        ctx.translate(S(ufoX), S(ufoY)); ctx.rotate(Math.round(tick / 4) * (Math.PI / 4));
+        ctx.beginPath(); ctx.arc(0, 0, 52, 0, Math.PI * 1.4); ctx.stroke(); ctx.restore();
+        labels.push({ s: '빙글!', x: ufoX, y: ufoY + (ufoY < playerY ? -62 : 70), font: 'bold 13px Arial', color: '#e4d6ff' });
+      }
+      if (swirlOrb) {
+        const ox = S(swirlOrb.x), oy = S(swirlOrb.y);
+        ellipse(ox, oy, 15, 15, '#7d5fd666'); ellipse(ox, oy, 11, 11, '#c9b5f4');
+        ctx.save(); ctx.translate(ox, oy); ctx.rotate(Math.round(tick / 3) * (Math.PI / 4)); drawIcon(ctx, 'swirl'); ctx.restore();
+      }
       drawCompanions();
       ship(playerX, playerY, t);
       if (hyperLeft > 0) {
@@ -2535,6 +2795,8 @@
       if (p < 0.08 && !REDUCED) { ctx.fillStyle = '#ffffff55'; ctx.fillRect(0, 0, width, height); } // 순간 섬광
       ctx.strokeStyle = '#ffe6a0'; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.arc(S(deathFx.x), S(deathFx.y), 10 + p * 110, 0, Math.PI * 2); ctx.stroke();
+      if ((tick >> 2) & 1) { ctx.strokeStyle = '#ff8fb8'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(S(deathFx.x), S(deathFx.y), 22, 0, Math.PI * 2); ctx.stroke(); }
+      labels.push({ s: '탁!', x: deathFx.x, y: deathFx.y - 30, font: 'bold 16px Arial', color: '#ffb6d3' });
       ctx.strokeStyle = '#ffb6d3'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(S(playerX), S(playerY), 6 + p * 70, 0, Math.PI * 2); ctx.stroke();
     }
@@ -2578,7 +2840,19 @@
   // ═══════════════════════════════════════════════════════════════
   // 19. 입력
   // ═══════════════════════════════════════════════════════════════
-  $('start').onclick = () => (mode === 'paused' ? pause() : start(false));
+  $('start').onclick = () => (mode === 'paused' ? pause() : start(mode === 'over' ? course : false));
+  // 결과 띠: 버튼이 아닌 곳을 톡 = 바로 다시 (게임오버 직후 0.6초는 무시 — 하던 손짓으로 잘못 눌리지 않게)
+  $('panel').addEventListener('click', (e) => {
+    if (mode !== 'over' || !$('panel').classList.contains('quick')) return;
+    if (e.target.closest('button, input, a, details, summary, .nick-box')) return;
+    if (performance.now() - overAt < 600) return;
+    start(course);
+  });
+  $('over-more').onclick = () => { $('panel').classList.remove('quick'); $('over-more').hidden = true; };
+  $('rank-line').onclick = () => { if ($('rank-line').dataset.act === 'course') start(true); else openBoard(); };
+  $('nick-save').onclick = saveNick;
+  $('nick-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveNick(); } e.stopPropagation(); });
+  $('board-open').onclick = openBoard; $('board-close').onclick = closeBoard;
   $('pause').onclick = pause;
   $('mask').onclick = useMask;
   $('book-open').onclick = openBook; $('book-close').onclick = closeBook;
@@ -2633,12 +2907,13 @@
       if (!$('share-panel').hidden) closeShare();
       else if (mode === 'book') closeBook();
       else if (mode === 'journey') closeJourney();
+      else if (mode === 'board') closeBoard();
       else if (mode === 'hangar') closeHangar();
       else if (['playing', 'capture', 'paused'].includes(mode)) pause();
     }
     if (code === 'KeyM') useMask();
     if (code === 'Space') {
-      if (mode === 'ready' || mode === 'over') start(false);
+      if (mode === 'ready' || mode === 'over') start(mode === 'over' ? course : false);
       else if (mode === 'playing') useMask();
       else if (mode === 'paused') pause();
     }

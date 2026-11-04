@@ -98,6 +98,19 @@ window.__nd = {
   toUfo: () => { playerX = targetX = S(ufoX); return primaryHp; },
   alien: () => ({ alienPhase, primaryGone, masks, ufoY }),
 };
+  // v0.17
+window.__nd.flip = () => startFlip();
+window.__nd.fl = () => ({ flipLeft, dir: dirY(), beat: beatState, orb: !!swirlOrb, phase: alienPhase, inv: invincible, y: playerY, revTop: revTop(), revBot: revBot(), minY: minY(), mode, gauge: hyperGauge, wp: weaponPending || !!weaponDrop });
+window.__nd.setFlipLeft = (v) => { flipLeft = v; sync(); };
+window.__nd.rowNow = () => { obstacles = []; row(1); return obstacles.map((o) => [o.y, o.speed]); };
+window.__nd.fireNow = () => { bullets = []; weaponLeft = 5; weaponLv = Math.max(1, weaponLv); shotClock = 0; updateCombat(0.0001); return bullets.map((b) => b.dy || 1); };
+window.__nd.beats = () => { planBeats(); return { plan: beatPlan.slice(), len: planet().len }; };
+window.__nd.atBeat = (t) => { tripT = t; updateBeats(); return beatState; };
+window.__nd.ffSafe = (n) => { for (let i = 0; i < n; i++) { obstacles = []; orbs = []; update(STEP); tick++; if (mode !== 'playing') break; } return { mode, flipLeft, inv: invincible }; };
+window.__nd.orbAt = () => { swirlOrb = { x: playerX, y: playerY - 70, vx: 0, vy: 260, t: 0 }; invincible = 0; };
+window.__nd.shootOrb = () => { swirlOrb = { x: playerX, y: playerY - 120, vx: 0, vy: 0, t: 0 }; bullets = [{ x: playerX, y: playerY - 112, vx: 0, life: 1, dy: 1 }]; updateCombat(0.0001); return !!swirlOrb; };
+window.__nd.swirlSetup = () => { const b = beatPlan.at(0); tripT = b + 0.5; updateBeats(); primaryGone = 0; primaryStun = 0; alienPhase = 'patrol'; confusedLeft = 0; masked = 0; swirlOrb = null; return { b, beat: beatState, armed: swirlArmed }; };
+window.__nd.points = (v) => { points = v; score = v; };
 if (!/[?&]tut=1/.test(location.search)) tips.tutorial = true; // 다른 검사는 연습 비행 없이
 """
 def inject(src, needle, extra):
@@ -217,7 +230,8 @@ async def main():
         s2 = await pg.evaluate('__nd.s()')
         check('첫 포획: 인형만 잃고 계속', s1['mode'] == 'playing' and s1['doll'] is False, str(s1))
         check('두 번째 포획: 종료', s2['mode'] == 'over', str(s2))
-        check('결과 화면 기록 표시', await pg.is_visible('#run-stats'))
+        await pg.click('#over-more')
+        check('결과 화면 기록 표시(결과 보기를 누르면)', await pg.is_visible('#run-stats'))
         await pg.context.close()
 
         print('7. 뒤로가기')
@@ -336,7 +350,7 @@ async def main():
         check('공유 메시지: 점수·시간·행성·결과 링크(#r1.)', a['mode'] == 'over' and '점' in msg and '버팀' in msg and '네온 성운' in msg and '#r1.' in msg, msg.replace('\n', ' / '))
         ng = await pg.text_content('#next-goal')
         check('결과 화면 다음 목표는 한 줄', ng.count('\n') == 0 and len(ng) < 30, ng)
-        await pg.click('#share'); await pg.wait_for_timeout(300)
+        await pg.click('#over-more'); await pg.click('#share'); await pg.wait_for_timeout(300)
         check('자랑하기: 채팅 미리보기 + 친구가 볼 카드', await pg.is_visible('#share-panel') and '뽀짝 우주 대탈출' in await pg.text_content('#share-preview') and (await pg.get_attribute('#share-card', 'src') or '').startswith('data:image/png'))
         await pg.click('#share-copy'); await pg.wait_for_timeout(300)
         check('메시지 복사 버튼 동작', '복사' in await pg.text_content('#share-copy'))
@@ -349,7 +363,7 @@ async def main():
         pg = await ctx.new_page(); await pg.goto(URL + '?app=1'); await pg.wait_for_timeout(300)
         await pg.click('#start'); await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*4,false)')
         await pg.evaluate('__nd.ff(60*4,true)'); await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*5,false)')
-        await pg.click('#share'); await pg.wait_for_timeout(200)
+        await pg.click('#over-more'); await pg.click('#share'); await pg.wait_for_timeout(200)
         shared = await pg.evaluate('window.__shared || ""')
         check('앱: 버튼 한 번에 캡처 공유 호출(결과 화면 그대로, 미리보기 창 없이)', '#r1.' in shared and not await pg.is_visible('#share-panel'), shared[:40])
         await ctx.close()
@@ -412,6 +426,7 @@ async def main():
         await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*4,false)')
         await pg.evaluate('__nd.ff(60*4,true)'); await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*5,false)')
         ng = await pg.text_content('#next-goal')
+        await pg.click('#over-more')
         check('결과 화면: 모선까지 몇 초 남았는지 다음 목표', await pg.is_visible('#next-goal') and '모선까지' in ng, ng)
         check('알림·목표 에러 없음', not errs, '; '.join(errs[:3]))
         await pg.context.close()
@@ -517,12 +532,146 @@ async def main():
         await pg.click('#start'); await pg.wait_for_timeout(200)
         check('두 번째 판부터는 연습 없이 시작', await pg.evaluate('__nd.tut()') is None)
         await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*4,false)'); await pg.evaluate('__nd.ff(60*4,true)'); await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*5,false)')
-        await pg.click('#tutorial-open'); await pg.wait_for_timeout(200)
+        await pg.click('#over-more'); await pg.click('#tutorial-open'); await pg.wait_for_timeout(200)
         check('시작 화면 "연습 비행"으로 다시 보기', (await pg.evaluate('__nd.tut()') or {}).get('step') == 0)
         await pg.click('#coach-skip'); await pg.wait_for_timeout(100)
         check('건너뛰기 → 바로 본게임', await pg.evaluate('__nd.tut()') is None and not await pg.is_visible('#coach') and await pg.evaluate('__nd.s().mode') == 'playing')
         check('연습 비행 에러 없음', not errs, '; '.join(errs[:3]))
         await ctx.close()
+        print('22. 역방향 비행')
+        pg, errs = await page(b, {})
+        await pg.click('#start'); await pg.wait_for_timeout(300)
+        await pg.evaluate('__nd.ffSafe(60)')
+        await pg.evaluate('__nd.flip()')
+        f = await pg.evaluate('__nd.fl()')
+        check('빙글 구슬 → 10초 역방향 + 전환 안전 시간', abs(f['flipLeft'] - 10) < 0.1 and f['dir'] == -1 and f['inv'] >= 1.4, str(f))
+        sp = await pg.text_content('#splash')
+        check('뒤집힐 때 가운데 큰 알림(조작은 그대로 안내)', '뒤집혔다' in sp and '조작은 그대로' in sp, sp)
+        rows = await pg.evaluate('__nd.rowNow()')
+        check('역방향: 운석 줄이 아래에서 위로', rows and all(y > 600 and v < 0 for y, v in rows), str(rows[:2]))
+        dys = await pg.evaluate('__nd.fireNow()')
+        check('역방향: 별탄은 아래로', dys and all(d == -1 for d in dys), str(dys))
+        await pg.evaluate('__nd.ffSafe(80)')
+        f = await pg.evaluate('__nd.fl()')
+        check('기체가 화면 위쪽 항로로 이동(이동 속도는 그대로)', f['revTop'] <= f['y'] <= f['revBot'] and f['mode'] == 'playing', str(f))
+        y0 = (await pg.evaluate('__nd.s()'))['y']
+        await pg.keyboard.down('ArrowDown'); await pg.wait_for_timeout(250); await pg.keyboard.up('ArrowDown')
+        y1 = (await pg.evaluate('__nd.s()'))['y']
+        check('조작 방향은 그대로(아래 키 = 아래로)', y1 > y0, f'{y0}->{y1}')
+        fb = await pg.text_content('#flip-banner')
+        check('위쪽 안내: 거꾸로 비행 중', await pg.is_visible('#flip-banner') and '거꾸로' in fb, fb)
+        await pg.evaluate('__nd.setFlipLeft(4.6)')
+        fb = await pg.text_content('#flip-banner')
+        check('복귀 5초 전부터 카운트다운(정방향 글자)', '정상 항로 복귀까지 5' in fb and 'warn' in (await pg.get_attribute('#flip-banner', 'class')), fb)
+        await pg.evaluate('__nd.setFlipLeft(2.2)')
+        check('카운트다운 3', '복귀까지 3' in await pg.text_content('#flip-banner'))
+        r = await pg.evaluate('__nd.ffSafe(150)')
+        f = await pg.evaluate('__nd.fl()')
+        check('복귀: 정방향 + 안전 시간', f['dir'] == 1 and f['flipLeft'] == 0 and f['inv'] > 0 and f['mode'] == 'playing', str(f))
+        check('복귀 알림', '정상 항로 복귀' in (await pg.text_content('#splash') or ''))
+        await pg.evaluate('__nd.ffSafe(120)')
+        f = await pg.evaluate('__nd.fl()')
+        check('복귀 후 원래 높이로', f['y'] >= f['minY'], str(f))
+        rows = await pg.evaluate('__nd.rowNow()')
+        check('복귀 후 운석은 다시 위에서', rows and all(y < 0 and v > 0 for y, v in rows))
+        await pg.evaluate('__nd.orbAt()'); await pg.evaluate('__nd.ffSafe(30)')
+        check('빙글 구슬에 맞으면 뒤집힘', (await pg.evaluate('__nd.fl()'))['flipLeft'] > 9)
+        await pg.evaluate('__nd.setFlipLeft(0.01)'); await pg.evaluate('__nd.ffSafe(100)')
+        alive = await pg.evaluate('__nd.shootOrb()')
+        check('빙글 구슬은 별탄으로 터뜨릴 수 있음', alive is False and (await pg.evaluate('__nd.fl()'))['flipLeft'] == 0)
+        check('역방향 에러 없음', not errs, '; '.join(errs[:3]))
+        await pg.context.close()
+
+        print('23. 몰림→반격 리듬 · 빙글 구슬 예고')
+        pg, errs = await page(b, {})
+        await pg.click('#start'); await pg.wait_for_timeout(300)
+        bt = await pg.evaluate('__nd.beats()')
+        plan, L = bt['plan'], bt['len']
+        check('행성마다 몰리는 구간 1~3번, 시작 직후·모선 직전은 비움', 1 <= len(plan) <= 3 and plan[0] >= L * 0.18 - 0.01 and plan[-1] + 10 <= L * 0.92, str((plan, L)))
+        check('몰리는 구간', await pg.evaluate(f'__nd.atBeat({plan[0] + 1})') == 'crunch')
+        await pg.evaluate('__nd.setGauge(0)')
+        check('반격 구간', await pg.evaluate(f'__nd.atBeat({plan[0] + 6.5})') == 'release')
+        f = await pg.evaluate('__nd.fl()')
+        check('반격 구간: 별탄 캡슐 + 폭주 게이지 +4', f['wp'] and f['gauge'] == 4, str(f))
+        await pg.evaluate('__nd.atBeat(1)')
+        st = await pg.evaluate('__nd.swirlSetup()')
+        seen = {'swirl': False, 'orb': False}
+        for _ in range(150):
+            f = await pg.evaluate('__nd.ffSafe(1)')
+            g = await pg.evaluate('__nd.fl()')
+            if g['phase'] == 'swirl': seen['swirl'] = True
+            if g['orb']: seen['orb'] = True; break
+        check('몰리는 구간에 UFO가 예고(멈칫) 후 빙글 구슬 발사', seen['swirl'] and seen['orb'], str((st, seen)))
+        check('리듬 에러 없음', not errs, '; '.join(errs[:3]))
+        await pg.context.close()
+
+        print('24. 빠른 재시작 · 아까움 한 줄 · 신기록 돌파')
+        pg, errs = await page(b, {'neon-drift-best': '60', 'neon-drift-score-version': '2'})
+        await pg.click('#start'); await pg.wait_for_timeout(300)
+        await pg.evaluate('__nd.points(70)'); await pg.evaluate('__nd.ffSafe(2)')
+        check('플레이 중 최고 기록을 넘으면 "최고 기록 돌파!!"', '최고 기록 돌파' in (await pg.text_content('#splash') or ''))
+        await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*4,false)'); await pg.evaluate('__nd.ff(60*4,true)'); await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*5,false)')
+        cls = await pg.get_attribute('#panel', 'class')
+        nl = await pg.text_content('#near-line')
+        check('게임오버 → 짧은 결과 띠(아까움 한 줄)', 'quick' in cls and await pg.is_visible('#near-line') and '신기록' in nl, nl)
+        check('긴 기록은 접혀 있음(결과 보기 버튼)', not await pg.is_visible('#run-stats') and await pg.is_visible('#over-more'))
+        check('다시 버튼: 톡!', '톡' in await pg.text_content('#start'))
+        await pg.wait_for_timeout(700)
+        await pg.mouse.click(195, 260); await pg.wait_for_timeout(150)
+        check('화면 아무 데나 톡 = 바로 다시', (await pg.evaluate('__nd.s()'))['mode'] == 'playing')
+        await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*4,false)'); await pg.evaluate('__nd.ff(60*4,true)'); await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*5,false)')
+        nl = await pg.text_content('#near-line')
+        check('기록 못 깨면 "최고 기록까지 N점!" 또는 더 아까운 한 줄', any(k in nl for k in ['최고 기록까지', '모선까지', '폭주까지', '체력']), nl)
+        await pg.mouse.click(195, 260)
+        check('게임오버 직후 0.6초 안의 톡은 무시(실수 방지)', (await pg.evaluate('__nd.s()'))['mode'] == 'over')
+        await pg.click('#over-more')
+        check('결과 보기 → 전체 결과 + 카톡 자랑하기', await pg.is_visible('#run-stats') and await pg.is_visible('#share'))
+        check('재시작 에러 없음', not errs, '; '.join(errs[:3]))
+        await pg.context.close()
+
+        print('25. 하루 랭킹 (오늘의 코스)')
+        ctx = await b.new_context(viewport={'width': 390, 'height': 844}); pg = await ctx.new_page(); errs = []; sent = []
+        pg.on('pageerror', lambda e: errs.append(str(e)))
+        async def sb(route):
+            req = route.request; body = json.loads(req.post_data or '{}'); sent.append((req.url.rsplit('/', 1)[-1], body, req.headers.get('apikey', '')))
+            if req.url.endswith('submit_daily'):
+                await route.fulfill(status=200, content_type='application/json', body=json.dumps({'ok': True, 'best': body['p_score'], 'rank': 3, 'total': 10, 'gap': 120}))
+            else:
+                await route.fulfill(status=200, content_type='application/json', body=json.dumps({'day': body['p_day'], 'total': 3, 'me': {'rank': 2, 'score': 50, 'nick': '뽀짝왕', 'gap': 30},
+                    'top': [{'rank': 1, 'nick': '고수', 'score': 80, 'secs': 9, 'mine': False}, {'rank': 2, 'nick': '뽀짝왕', 'score': 50, 'secs': 5, 'mine': True}, {'rank': 3, 'nick': '친구', 'score': 20, 'secs': 3, 'mine': False}]}))
+        await pg.route('https://rbtodhdjwumkmlnpdmcm.supabase.co/**', sb)
+        await pg.goto(URL); await pg.wait_for_timeout(300)
+        await pg.click('#course-start'); await pg.wait_for_timeout(300)
+        await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*4,false)'); await pg.evaluate('__nd.ff(60*4,true)'); await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*5,false)')
+        check('처음엔 닉네임 입력 칸', await pg.is_visible('#nick-box') and '닉네임' in await pg.text_content('#rank-line'))
+        await pg.fill('#nick-input', '뽀짝왕'); await pg.click('#nick-save'); await pg.wait_for_timeout(300)
+        rl = await pg.text_content('#rank-line')
+        sub = [x for x in sent if x[0] == 'submit_daily']
+        check('닉네임 정하면 오늘 순위에 등록 → "오늘 3위 · 2위까지 120점"', '3위' in rl and '120점' in rl and sub and sub[-1][1]['p_nick'] == '뽀짝왕' and sub[-1][2].startswith('sb_publishable_'), rl)
+        check('제출 값: 오늘 날짜 · 기기 ID · 점수 · 시간', sub and len(sub[-1][1]['p_device']) >= 8 and sub[-1][1]['p_secs'] >= 1 and len(sub[-1][1]['p_day']) == 10, str(sub[-1][1] if sub else None))
+        await pg.wait_for_timeout(700); await pg.click('#start'); await pg.wait_for_timeout(200)
+        await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*4,false)'); await pg.evaluate('__nd.ff(60*4,true)'); await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*5,false)'); await pg.wait_for_timeout(300)
+        check('다음 판부터는 닉네임 안 묻고 바로 등록 · 같은 코스로 다시', not await pg.is_visible('#nick-box') and len([x for x in sent if x[0] == 'submit_daily']) == 2)
+        await pg.click('#rank-line'); await pg.wait_for_timeout(300)
+        rows = await pg.locator('#board-list li').count()
+        me = await pg.text_content('#board-me')
+        check('순위 누르면 오늘 순위표(상위 + 내 순위)', await pg.is_visible('#board') and rows == 3 and '2위' in me and '30점' in me, me)
+        check('내 줄 강조', 'mine' in (await pg.get_attribute('#board-list li:nth-child(2)', 'class')))
+        await pg.click('#board-close')
+        await ctx.close()
+        ctx = await b.new_context(viewport={'width': 390, 'height': 844}); pg = await ctx.new_page()
+        await pg.route('https://rbtodhdjwumkmlnpdmcm.supabase.co/**', lambda r: r.abort())
+        await pg.goto(URL); await pg.wait_for_timeout(300)
+        await pg.evaluate("localStorage.setItem('neon-drift-nick','뽀짝왕')"); await pg.reload(); await pg.wait_for_timeout(300)
+        await pg.click('#course-start'); await pg.wait_for_timeout(200)
+        await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*4,false)'); await pg.evaluate('__nd.ff(60*4,true)'); await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*5,false)'); await pg.wait_for_timeout(600)
+        check('인터넷이 없으면 안내만 하고 게임은 그대로', '인터넷' in await pg.text_content('#rank-line'))
+        await ctx.close()
+        pg, errs2 = await page(b, {})
+        await pg.click('#start'); await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*4,false)'); await pg.evaluate('__nd.ff(60*4,true)'); await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*5,false)')
+        check('일반 판 결과에는 "오늘의 코스로 순위 도전" 안내', '오늘의 코스' in await pg.text_content('#rank-line'))
+        check('랭킹 에러 없음', not errs and not errs2, '; '.join((errs + errs2)[:3]))
+        await pg.context.close()
         await b.close()
 
     print(f'\n{sum(results)}/{len(results)} 통과')

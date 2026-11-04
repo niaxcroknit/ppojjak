@@ -52,20 +52,26 @@
     <div id="scene-caption" class="scene-caption" hidden></div>
     <div id="splash" class="splash" role="status" aria-live="assertive" hidden></div>
     <div id="coach" class="coach" role="status" aria-live="polite" hidden></div>
+    <div id="flip-banner" class="flip-banner" role="status" aria-live="assertive" hidden></div>
+    <div id="beat-edge" class="beat-edge calm" aria-hidden="true"></div>
 
     <div id="panel" class="overlay">
       <div class="eyebrow">귀여우면 잡혀가는 슈팅 게임</div>
       <h1 class="title-ko">뽀짝<br><span>우주 대탈출</span><img id="mascot" class="rocket-mascot" alt="" aria-hidden="true"></h1>
       <p id="message">외계인은 귀여운 것부터 데려간대요.<br>…일단 출발할까요?</p>
       <div id="result" hidden></div>
+      <div id="near-line" class="near-line" hidden></div>
+      <button id="rank-line" class="rank-line" type="button" hidden></button>
+      <div id="nick-box" class="nick-box" hidden><input id="nick-input" maxlength="10" placeholder="닉네임 (10자까지)" autocomplete="off" enterkeyhint="done"><button id="nick-save" type="button">순위 등록</button></div>
       <div id="next-goal" class="next-goal" hidden></div>
       <div id="run-stats" class="run-stats" hidden></div>
       <button id="share" class="share-button" hidden>카톡으로 자랑하기</button>
       <div id="goal" class="goal"></div>
       <button id="start" class="primary">출발하기 <span>↗&#xFE0E;</span></button>
+      <button id="over-more" class="book-open over-more" type="button" hidden>결과 보기 · 카톡 자랑하기 ↗&#xFE0E;</button>
       <button id="course-start" class="course-button">오늘의 코스 <small id="course-best">모두 같은 배치</small></button>
       <div id="daily" class="daily"></div>
-      <div class="panel-links"><button id="book-open" class="book-open">발견 도감 ↗&#xFE0E;</button><button id="journey-open" class="book-open">여정 · 지도 ↗&#xFE0E;</button><button id="tutorial-open" class="book-open">연습 비행 ↗&#xFE0E;</button></div>
+      <div class="panel-links"><button id="book-open" class="book-open">발견 도감 ↗&#xFE0E;</button><button id="journey-open" class="book-open">여정 · 지도 ↗&#xFE0E;</button><button id="tutorial-open" class="book-open">연습 비행 ↗&#xFE0E;</button><button id="board-open" class="book-open">오늘 순위 ↗&#xFE0E;</button></div>
       <div class="hint">상하좌우 드래그 · 탭으로 위장<br><small>PC: 방향키 / WASD 이동 · Space / M 위장 · Esc 일시정지</small></div>
       <div id="debug" class="debug" hidden></div>
     </div>
@@ -113,6 +119,13 @@
       <p class="book-rule">친구가 늘수록 기체가 귀여워져서… UFO가 더 자주 노려요.</p>
     </section>
 
+    <section id="board" class="item-book" role="dialog" aria-modal="true" aria-labelledby="board-title" hidden>
+      <div class="book-head"><h2 id="board-title">오늘 순위</h2><button id="board-close" class="icon close" aria-label="닫기">✕</button></div>
+      <p class="book-rule"><span id="board-day"></span><br>오늘의 코스는 모두 같은 운석 배치라 실력으로만 겨뤄요.</p>
+      <div id="board-me" class="board-me"></div>
+      <ol id="board-list" class="board-list"></ol>
+    </section>
+
     <section id="hangar" class="hangar" role="dialog" aria-modal="true" aria-labelledby="hangar-title" hidden>
       <div class="book-head"><h2 id="hangar-title">상점</h2><button id="hangar-close" class="icon close" aria-label="닫기">✕</button></div>
       <div class="hangar-wallet"><small>내 별조각</small><b id="hangar-stars">★ 0</b><span id="hangar-msg" class="hangar-msg" role="status" aria-live="polite"></span></div>
@@ -137,7 +150,7 @@
     </section>
   </section>
 
-  <footer><span>취향은 존중. 추격은 사양.</span><span>v0.16 · BETA</span></footer>
+  <footer><span>취향은 존중. 추격은 사양.</span><span>v0.17 · BETA</span></footer>
 </main>
 <div id="old-webview" class="old-webview" hidden>
   <b>WebView 업데이트가 필요해요</b>

@@ -484,3 +484,38 @@ h1.title-ko span { text-shadow: 0 3px 0 #5b43ad; }
 /* 게임 제목(로고) = 원스토어 모바일 POP체 — 로고 사용이 허용된 글꼴 */
 h1.title-ko, .brand, .book-head h2, .share-panel h2 { font-family: 'OnePop', var(--cute); font-weight: 400; }
 h1.title-ko { letter-spacing: -1px; }
+
+/* ═══ v0.17 역방향 비행 · 리듬 · 빠른 재시작 · 하루 랭킹 ═══ */
+.flip-banner { position: absolute; z-index: 5; top: 112px; left: 16px; right: 16px; margin: 0 auto; max-width: 340px; text-align: center; pointer-events: none;
+  font-family: var(--label); font-weight: 800; font-size: 13px; color: #e4d6ff; background: #2a1f52cc; border: 1px solid #c9b5f4aa; border-radius: 99px; padding: 6px 12px; }
+.flip-banner[hidden] { display: none; }
+.flip-banner.warn { font-family: var(--cute); font-weight: 400; font-size: 22px; color: #fff3c4; background: #3a2a10e6; border: 2px solid #f6d47a; border-radius: 16px; padding: 8px 14px;
+  text-shadow: 0 2px 0 #7a5a12; animation: flipPulse 1s ease-in-out infinite; }
+@keyframes flipPulse { 0%, 100% { transform: scale(1); } 15% { transform: scale(1.08); } }
+.beat-edge { position: absolute; inset: 0; z-index: 2; pointer-events: none; border-radius: inherit; transition: box-shadow 0.4s; }
+.beat-edge.crunch { box-shadow: inset 0 0 0 3px #ff8fb855, inset 0 0 46px #ff6b9a44; }
+.beat-edge.release { box-shadow: inset 0 0 0 3px #a5f8d555, inset 0 0 46px #a5f8d533; }
+@media (prefers-reduced-motion: reduce) { .flip-banner.warn { animation: none; } .beat-edge { transition: none; } }
+
+/* 빠른 결과 띠: 게임 장면이 비치고, 아래쪽에 핵심만 */
+.overlay.quick { justify-content: flex-end; background: linear-gradient(180deg, #15152d00 30%, #15152dcc 62%, #15152df2); backdrop-filter: none; padding-bottom: 22px; cursor: pointer; }
+.overlay.quick > :not(#result):not(#near-line):not(#rank-line):not(#nick-box):not(#start):not(#over-more) { display: none !important; }
+.overlay.quick > #result { margin-top: auto; }
+.overlay.quick #result { font-family: var(--label); font-weight: 900; font-size: 16px; color: #e4d6ff; }
+.near-line { font-family: var(--cute); font-size: 30px; line-height: 1.2; color: #fff3c4; text-shadow: 0 3px 0 #7a5a12; margin: 6px 0 4px; }
+.near-line[hidden], .rank-line[hidden], .nick-box[hidden], .over-more[hidden] { display: none; }
+.rank-line { display: block; width: 100%; text-align: left; margin: 6px 0 10px; padding: 10px 14px; border-radius: 14px; border: 1px solid #a5f8d566; background: #1c3a37cc; color: #d8fff4;
+  font-family: var(--label); font-weight: 800; font-size: 14px; }
+.nick-box { display: flex; gap: 8px; margin: 0 0 10px; }
+.nick-box input { flex: 1; min-width: 0; border-radius: 12px; border: 1px solid #c9b5f4; background: #1f1a3d; color: #fff; font-size: 16px; padding: 10px 12px; font-family: var(--label); font-weight: 800; }
+.nick-box button { border: 0; border-radius: 12px; padding: 0 14px; background: #a5f8d5; color: #15152d; font-family: var(--label); font-weight: 900; }
+.overlay.quick #start small { font-size: 13px; opacity: 0.7; }
+.over-more { margin-top: 4px; }
+.board-me { font-family: var(--label); font-weight: 900; font-size: 15px; color: #a5f8d5; margin: 10px 0 8px; }
+.board-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.board-row { display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 12px;
+  background: linear-gradient(180deg, var(--card), var(--card2)); border: 1px solid var(--line); font-family: var(--label); font-weight: 800; }
+.board-row b { font-family: var(--cute); font-weight: 400; font-size: 18px; color: #c9b5f4; }
+.board-row:nth-child(1) b { color: #ffd76a; } .board-row:nth-child(2) b { color: #e2e8f0; } .board-row:nth-child(3) b { color: #f0a46b; }
+.board-row em { font-style: normal; color: #fff3c4; }
+.board-row.mine { border-color: #a5f8d5; background: linear-gradient(180deg, #24463f, #1c3430); }

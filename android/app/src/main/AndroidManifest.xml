@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- 피격·아이템 획득 시 짧은 진동 (일반 권한, 사용자 확인 없음) -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- 하루 랭킹(오늘의 코스) 점수 제출·조회만. WebView는 Supabase 주소 말고는 모두 막습니다. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <application
         android:label="뽀짝 우주 대탈출"
         android:icon="@mipmap/ic_launcher"

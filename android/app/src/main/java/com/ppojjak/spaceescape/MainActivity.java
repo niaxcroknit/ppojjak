@@ -52,6 +52,7 @@ import java.util.Set;
 public class MainActivity extends Activity {
     private static final int BG = 0xff15152d;
     private static final String HOST = "app.local";
+    private static final String RANK_HOST = "rbtodhdjwumkmlnpdmcm.supabase.co";
     private static final String START_URL = "https://" + HOST + "/?app=1";
     private static final Set<String> ASSETS = new HashSet<>(Arrays.asList("index.html", "style.css", "game.js",
             "fonts/onemobilepop.woff", "fonts/nsn-eb.woff2", "fonts/nsn-hv.woff2")); // 글꼴도 앱 안에서만 읽음
@@ -105,6 +106,8 @@ public class MainActivity extends Activity {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
+                // 하루 랭킹 서버(Supabase)만 실제 인터넷으로 보냄. 그 밖의 외부 요청은 모두 막음.
+                if ("https".equals(uri.getScheme()) && RANK_HOST.equals(uri.getHost())) return null;
                 if (!"https".equals(uri.getScheme()) || !HOST.equals(uri.getHost())) return empty();
                 String path = uri.getPath();
                 String asset = (path == null || "/".equals(path)) ? "index.html" : path.substring(1);
