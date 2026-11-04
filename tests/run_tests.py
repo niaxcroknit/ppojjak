@@ -53,15 +53,16 @@ window.__nd = {
   stock: (m, l, d) => { masks = m; lives = l; doubleLeft = d; },
   hy: () => ({ masks, lives, doubleLeft, hyperLeft, hyperCharged, doll, refunds: pickups.filter((p) => p.refund).map((p) => p.type), mode }),
   setHyper: (v) => { hyperLeft = v; },
+  skyTest: () => { obstacles = []; primaryGone = 5; tripT = 10; beatPlanFor = planetIdx; beatPlan = [7.5]; beatIdx = -1; invincible = 0; hyperLeft = 0; for (let i = 0; i < 3; i++) { obstacles = []; update(STEP); } return !!swirlOrb || flipOn(); },
   pebbleHit: () => { obstacles = []; invincible = 0; lives = 0; hyperLeft = 0; pebbles = [{ x: playerX + 4, y: playerY - 30, r: 8, vy: 200, vx: 0, spin: 0 }]; for (let i = 0; i < 20; i++) { obstacles = []; update(STEP); tick++; } return { mode, dents: dents.length, squish: !!squishText }; },
   pebbleCount: (sec) => { let seen = 0, made = 0; for (let i = 0; i < sec * 60; i++) { invincible = 999; const n = pebbleNo; update(STEP); tick++; if (pebbleNo > n) made++; } return made; },
-  rowShapes: (n) => { const out = []; for (let i = 0; i < n; i++) { obstacles = []; row(1); const ys = new Set(obstacles.map((o) => o.y)), xs = obstacles.map((o) => o.x).sort((a, b) => a - b); let maxGap = 0; for (let j = 1; j < xs.length; j++) maxGap = Math.max(maxGap, xs[j] - xs[j - 1] - 34); maxGap = Math.max(maxGap, xs[0], width - xs[xs.length - 1] - 34); out.push({ count: obstacles.length, rowsY: ys.size, maxGap }); } obstacles = []; return out; },
+  rowShapes: (n) => { const out = []; for (let i = 0; i < n; i++) { obstacles = []; row(1); const ys = new Set(obstacles.map((o) => o.y)), xs = obstacles.map((o) => o.x).sort((a, b) => a - b); let maxGap = 0; for (let j = 1; j < xs.length; j++) maxGap = Math.max(maxGap, xs[j] - xs[j - 1] - 34); maxGap = Math.max(maxGap, xs[0], width - xs[xs.length - 1] - 34); let minD = 999; for (let j = 1; j < xs.length; j++) minD = Math.min(minD, xs[j] - xs[j - 1]); out.push({ count: obstacles.length, rowsY: ys.size, maxGap, minD }); } obstacles = []; return out; },
   kill: () => { invincible = 0; hyperLeft = 0; lives = 0; die('rock', playerX, playerY); for (let i = 0; i < 120 && mode !== 'over'; i++) { obstacles = []; update(STEP); tick++; } return mode; },
   setDoll: (v) => { doll = v; },
   setStars: (v) => { stars = v; }, getStars: () => stars,
   trophy: () => ({ ...trophyCount }), coinsLeft: () => coins.length + loot.length, runStars: () => runStars,
   setGauge: (v) => { hyperGauge = v; },
-  ffAtBoss: (n) => { for (let i = 0; i < n && boss; i++) { obstacles = []; orbs = []; bullets = []; if (boss.claw) boss.claw = null; playerX = targetX = S(boss.x); playerY = targetY = S(boss.y + 20); update(STEP); tick++; } return boss ? boss.hp : 0; },
+  ffAtBoss: (n) => { for (let i = 0; i < n && boss; i++) { obstacles = []; orbs = []; bullets = []; weaponLeft = 0; if (boss.claw) boss.claw = null; playerX = targetX = S(boss.x); playerY = targetY = S(boss.y + 20); update(STEP); tick++; } return boss ? boss.hp : 0; },
   ffAtUfo: (n) => { obstacles = []; primaryStun = 0; if (alienPhase === 'recover') alienPhase = 'patrol'; for (let i = 0; i < n; i++) { obstacles = []; playerX = targetX = S(ufoX); playerY = targetY = S(ufoY); update(STEP); tick++; } return primaryHp; },
   ys: () => ({ y: playerY, minY: minY(), hyper: hyperLeft }),
   gauge: () => ({ hyperGauge, hyperCharged, hyperLeft, first: pickups.length ? pickups[0].type : '' }),
@@ -582,7 +583,7 @@ async def main():
         check('빙글 구슬에 맞으면 뒤집힘', (await pg.evaluate('__nd.fl()'))['flipLeft'] > 9)
         await pg.evaluate('__nd.setFlipLeft(0.01)'); await pg.evaluate('__nd.ffSafe(100)')
         alive = await pg.evaluate('__nd.shootOrb()')
-        check('빙글 구슬은 별탄으로 터뜨릴 수 있음', alive is False and (await pg.evaluate('__nd.fl()'))['flipLeft'] == 0)
+        check('빙글 구슬은 자동 별탄에 안 터짐(피해야 함)', alive is True)
         check('역방향 에러 없음', not errs, '; '.join(errs[:3]))
         await pg.context.close()
 
@@ -677,19 +678,25 @@ async def main():
         check('랭킹 에러 없음', not errs and not errs2, '; '.join((errs + errs2)[:3]))
         await pg.context.close()
 
-        print('26. 불규칙 운석 · 부스러기 운석')
+        print('26. 깔끔한 운석 줄 · 부스러기 운석 · 하늘 빙글 구슬')
         pg, errs = await page(b, {})
         await pg.click('#start'); await pg.wait_for_timeout(300)
         await pg.evaluate('__nd.setElapsed(20)')
         shapes = await pg.evaluate('__nd.rowShapes(40)')
-        check('운석 줄이 들쭉날쭉(높이가 한 줄로 딱 맞지 않음)', sum(1 for r in shapes if r['rowsY'] > 1) >= 30, str(shapes[:3]))
-        check('운석 개수가 줄마다 다름', len({r['count'] for r in shapes}) >= 3, str([r['count'] for r in shapes]))
-        check('어느 줄이든 기체가 지나갈 빈칸은 항상 있음', all(r['maxGap'] >= 100 for r in shapes), str(min(r['maxGap'] for r in shapes)))
+        check('운석 줄은 한 줄로 반듯하게 정렬', all(r['rowsY'] == 1 for r in shapes), str(shapes[:3]))
+        check('운석끼리 딱 붙지 않음(중심 간격 42px 이상)', all(r['minD'] >= 42 for r in shapes), str(min(r['minD'] for r in shapes)))
+        check('어느 줄이든 기체가 지나갈 빈칸은 항상 있음', all(r['maxGap'] >= 46 for r in shapes), str(min(r['maxGap'] for r in shapes)))
+        sky = await pg.evaluate('__nd.skyTest()')
+        check('UFO가 없어도 몰림 때 하늘에서 빙글 구슬이 내려옴', sky)
+        await pg.context.close()
+        pg, errs = await page(b, {})
+        await pg.click('#start'); await pg.wait_for_timeout(300)
+        await pg.evaluate('__nd.setElapsed(20)')
         made = await pg.evaluate('__nd.pebbleCount(20)')
-        check('부스러기 운석이 가끔 떨어짐(20초에 4~14개)', 4 <= made <= 14, str(made))
+        check('부스러기 운석이 가끔 떨어짐(20초에 2~7개)', 2 <= made <= 7, str(made))
         hit = await pg.evaluate('__nd.pebbleHit()')
         check('부스러기에 맞아도 안 죽고 기체가 찌그러짐', hit['mode'] == 'playing' and hit['dents'] >= 1 and hit['squish'], str(hit))
-        check('불규칙 운석 에러 없음', not errs, '; '.join(errs[:3]))
+        check('운석 줄 에러 없음', not errs, '; '.join(errs[:3]))
         await pg.context.close()
         await b.close()
 

@@ -1502,8 +1502,8 @@
       pebbleClock -= dt;
       if (pebbleClock <= 0) {
         pebbleNo++;
-        const k = 7000 + pebbleNo, many = beatState === 'release' ? 2 : 1;
-        pebbleClock = 1.6 + rnd(k, 1) * 2.6;
+        const k = 7000 + pebbleNo, many = 1;
+        pebbleClock = 3.5 + rnd(k, 1) * 3;
         for (let i = 0; i < many; i++) {
           const size = 6 + Math.round(rnd(k, 2 + i) * 4);
           pebbles.push({ x: 20 + rnd(k, 4 + i) * (width - 40), y: flipOn() ? height + 10 : -14, r: size,
@@ -1602,7 +1602,6 @@
         const v = visitors.find((v) => !v.dead && v.grace <= 0 && Math.hypot((b.x - v.x) / 43, (b.y - v.y) / 28) < 1);
         if (v) { v.y = Math.max(150, v.y - 4); burst(b.x, b.y - 6, '#ffdf9d'); damageVisitor(v, dmg); hit = true; }
       }
-      if (!hit && swirlOrb && Math.hypot(b.x - swirlOrb.x, b.y - swirlOrb.y) < 18) { popOrb(); hit = true; } // 빙글 구슬도 쏴서 터뜨림
       if (hit) b.life = 0;
     }
     bullets = bullets.filter((b) => b.life > 0 && ((b.dy || 1) > 0 ? b.y > 115 : b.y < height - 40) && b.x > -20 && b.x < width + 20);
@@ -2185,6 +2184,16 @@
     return swirlArmed && beatState === 'crunch' && !flipOn() && !hyperOn() && !tut && !boss && primaryGone <= 0 && primaryStun <= 0
       && tripT >= beatPlan.at(beatIdx) + 0.8 && !swirlOrb;
   }
+  // UFO가 격추됐거나 기절해서 못 쏘면, 몰림 1.8초째에 하늘에서 빙글 구슬이 직접 내려옴(뒤집기가 사라지지 않게)
+  function skySwirl() {
+    if (!swirlArmed || beatState !== 'crunch' || flipOn() || hyperOn() || tut || boss || swirlOrb) return;
+    if (tripT < beatPlan.at(beatIdx) + 1.8 || alienPhase === 'swirl') return;
+    swirlArmed = false;
+    const x = clamp(playerX + (rnd(8800 + beatIdx + planetIdx * 7, 1) - 0.5) * 120, 30, width - 30), y = flipOn() ? height + 20 : HUD_BAND + 10;
+    const dx = playerX - x, dy = playerY - y, d = Math.hypot(dx, dy) || 1, sp = ORB_SPEED * pace();
+    swirlOrb = { x, y, vx: (dx / d) * sp, vy: (dy / d) * sp, t: 0 };
+    toast('{swirl} 빙글 구슬이 떨어진다! 피해요', 1.6); tone(700, 0.08);
+  }
   function popOrb() {
     if (!swirlOrb) return;
     burst(swirlOrb.x, swirlOrb.y, '#c9b5f4'); burst(swirlOrb.x, swirlOrb.y, '#fff1aa');
@@ -2208,7 +2217,7 @@
     if (weaponDrop) weaponDrop.speed = -Math.abs(weaponDrop.speed);
     midDrop = null; forceGap = null; spawn = Math.max(spawn, 0.9);
     targetY = toRev(playerY); clampTarget(); mirrorAliens();
-    splash('{swirl} 뒤집혔다!!', '운석이 아래에서 와요 · 별탄도 아래로 · 조작은 그대로', 'boss', 1.8);
+    splash('{swirl} 뒤집혔다!!', '아래에서 와요 · 조작은 그대로', 'boss', 1.8);
     tone(300, 0.2); setTimeout(() => tone(200, 0.2), 120); buzz(70); shake = 0.25;
     sync();
   }
@@ -2228,10 +2237,12 @@
     tone(880, 0.12); setTimeout(() => tone(1175, 0.14), 100); buzz(30);
   }
   function updateFlip(dt) {
+    skySwirl();
     if (swirlOrb) {
       const o = swirlOrb;
+      if (o.t < 0.9) o.vx += clamp(playerX - o.x, -60, 60) * 1.6 * dt; // 처음 잠깐만 살짝 따라옴(피할 수는 있음)
       o.x += o.vx * dt; o.y += o.vy * dt; o.t += dt;
-      if (Math.hypot(o.x - playerX, o.y - playerY) < 20) {
+      if (Math.hypot(o.x - playerX, o.y - playerY) < 26) {
         if (hyperOn()) popOrb();
         else if (invincible <= 0) { swirlOrb = null; startFlip(); }
       }
@@ -2268,28 +2279,19 @@
     const gapX = forced ? clamp(forceGap - gap / 2, 22, Math.max(22, width - gap - 22)) : 22 + rnd(rowNumber, 1) * Math.max(1, width - gap - 44);
     forceGap = null;
     const speed = rowSpeed() * dirY(), y0 = flipOn() ? height + 6 : -40; // 역방향이면 아래에서 올라옴
-    // v0.17.1 불규칙 운석: 줄 모양을 섞음(빈칸은 항상 그대로 보장).
-    //  벽 줄 = 군데군데 구멍 + 앞뒤로 들쭉날쭉 / 흩어진 줄 = 운석 2~4개만 띄엄띄엄
-    const slots = [];
-    for (let x = 18; x < width - 12; x += 38) if (!(x + 17 > gapX && x - 17 < gapX + gap)) slots.push(x);
-    const scatterChance = beatState === 'crunch' ? 0.12 : beatState === 'release' ? 0.6 : 0.34;
-    const scatter = !forced && !tut && rnd(rowNumber, 4) < scatterChance;
-    let keep;
-    if (scatter) {
-      const n = Math.min(slots.length, 2 + Math.floor(rnd(rowNumber, 5) * 3));
-      const order = slots.map((x, i) => [rnd(rowNumber, 20 + i), x]).sort((p, q) => p[0] - q[0]);
-      keep = new Set(order.slice(0, n).map((o) => o[1]));
-    } else keep = new Set(slots.filter((x, i) => forced || rnd(rowNumber, 20 + i) > 0.13));
+    // v0.17.2 깔끔한 운석 줄(사용자: "따닥따닥 붙은 게 싫다", "들쭉날쭉은 지저분하다")
+    //  징검다리 줄(기본) = 운석이 84px 간격으로 한 줄 정렬, 줄마다 반 칸씩 엇갈려 지그재그로 빠져나감
+    //  벽 줄(몰림 구간·아이템 줄) = 42px 간격(서로 안 붙음) + 큰 빈칸 하나
+    const wall = forced || tut || beatState === 'crunch';
+    const step = wall ? 42 : 84, phase = wall ? 0 : (rowNumber % 2) * 42;
     const made = [];
-    slots.forEach((x, i) => {
-      if (!keep.has(x)) return;
-      const jx = forced ? 0 : Math.round((rnd(rowNumber, 40 + i) - 0.5) * (scatter ? 14 : 6));
-      const jy = forced ? 0 : Math.round(rnd(rowNumber, 60 + i) * (scatter ? 64 : 26));
-      const o = { x: x - 17 + jx, y: y0 - jy * dirY(), w: 34, h: 34, speed, spin: Math.random() * 6.28, vx: 0, close: false, grazed: false };
+    for (let x = 24 + phase; x < width - 16; x += step) {
+      if (wall && x + 17 > gapX && x - 17 < gapX + gap) continue; // 징검다리 줄은 사이사이가 원래 빈칸
+      const o = { x: x - 17, y: y0, w: 34, h: 34, speed, spin: Math.random() * 6.28, vx: 0, close: false, grazed: false };
       obstacles.push(o); made.push(o);
-    });
+    }
     const moverEvery = stage >= 3 ? 1 : stage >= 2 ? 2 : 3;
-    if (!forced && (scatter || rowNumber % moverEvery === moverEvery - 1 || moverEvery === 1)) {
+    if (!forced && (rowNumber % moverEvery === moverEvery - 1 || moverEvery === 1)) {
       const candidates = made;
       const rock = candidates[Math.floor(rnd(rowNumber, 2) * candidates.length)];
       if (rock) rock.vx = (rock.x < width / 2 ? 1 : -1) * (34 + rnd(rowNumber, 3) * 22);
