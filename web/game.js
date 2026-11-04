@@ -1248,7 +1248,7 @@
     return '최고 기록까지 ' + ko(best - score) + '점!';
   }
 
-  // ═══ 하루 랭킹 (오늘의 코스) ═══
+  // ═══ 하루 랭킹 (자유 비행 · 오늘의 코스) ═══
   const deviceId = (() => {
     let d = store.get(KEY_DEVICE);
     if (!d || !/^[A-Za-z0-9_-]{8,64}$/.test(d)) {
@@ -1270,25 +1270,29 @@
   }
   const ko = (n) => Number(n || 0).toLocaleString('ko-KR');
   function rankLine(text) { $('rank-line').textContent = text; $('rank-line').hidden = false; }
+  // 순위는 두 종류: free = 자유 비행(일반 판), course = 오늘의 코스(모두 같은 배치)
+  const KIND_NAME = { free: '자유 비행', course: '오늘의 코스' };
+  let boardKind = 'free';
   function rankAfterRun(sc, secs) {
-    if (!course) { rankLine('오늘의 코스로 하면 하루 순위에 올라가요 ↗︎'); $('rank-line').dataset.act = 'course'; return; }
-    $('rank-line').dataset.act = 'board';
-    if (!nick) { pendingRank = { sc, secs }; showNickBox(); rankLine('닉네임을 정하면 오늘 순위에 올라가요'); return; }
-    submitRank(sc, secs);
+    const kind = course ? 'course' : 'free';
+    boardKind = kind; $('rank-line').dataset.act = 'board';
+    if (!nick) { pendingRank = { sc, secs, kind }; showNickBox(); rankLine('닉네임을 정하면 오늘 순위에 올라가요'); return; }
+    submitRank(sc, secs, kind);
   }
   function showNickBox() { $('nick-box').hidden = false; $('nick-input').value = nick; }
-  async function submitRank(sc, secs) {
+  async function submitRank(sc, secs, kind = 'free') {
     rankLine('오늘 순위 올리는 중…');
     try {
-      const r = await rpc('submit_daily', { p_day: dayKey(), p_device: deviceId, p_nick: nick, p_score: sc, p_secs: Math.max(1, secs) });
+      const r = await rpc('submit_daily', { p_day: dayKey(), p_device: deviceId, p_nick: nick, p_score: sc, p_secs: Math.max(1, secs), p_kind: kind });
       if (!r || !r.ok) {
         const why = { nick: '닉네임은 1~10자로 해 주세요', nick_banned: '그 닉네임은 쓸 수 없어요 · 다른 걸로!', day: '오늘 순위는 한국 시간 기준이에요', score: '이 기록은 순위에 올릴 수 없어요' }[r && r.error] || '순위 등록에 실패했어요';
         rankLine(why);
-        if (r && /nick/.test(r.error)) { pendingRank = { sc, secs }; showNickBox(); }
+        if (r && /nick/.test(r.error)) { pendingRank = { sc, secs, kind }; showNickBox(); }
         return;
       }
       pendingRank = null;
-      rankLine(r.rank === 1 ? '오늘 1위! · ' + r.total + '명 중 (내 최고 ' + ko(r.best) + '점)' : '오늘 ' + r.rank + '위 / ' + r.total + '명 · ' + (r.rank - 1) + '위까지 ' + ko(r.gap) + '점!');
+      const tag = KIND_NAME[kind] + ' ';
+      rankLine(r.rank === 1 ? tag + '오늘 1위! · ' + r.total + '명 중 (내 최고 ' + ko(r.best) + '점)' : tag + '오늘 ' + r.rank + '위 / ' + r.total + '명 · ' + (r.rank - 1) + '위까지 ' + ko(r.gap) + '점!');
     } catch { rankLine('순위를 못 올렸어요 · 인터넷 연결을 확인해 주세요'); }
   }
   function saveNick() {
@@ -1296,19 +1300,25 @@
     if (!v) { $('nick-input').focus(); return; }
     nick = v; store.set(KEY_NICK, nick);
     $('nick-box').hidden = true;
-    if (pendingRank) submitRank(pendingRank.sc, pendingRank.secs);
+    if (pendingRank) submitRank(pendingRank.sc, pendingRank.secs, pendingRank.kind);
   }
   let boardFrom = 'ready';
-  async function openBoard() {
-    if (!['ready', 'over', 'paused'].includes(mode)) return;
-    boardFrom = mode; mode = 'board'; keys.clear(); dragging = false;
-    $('panel').inert = true; $('pause').disabled = true; $('board').hidden = false; $('board-close').focus();
+  async function openBoard(kind) {
+    if (kind) boardKind = kind;
+    if (mode !== 'board') {
+      if (!['ready', 'over', 'paused'].includes(mode)) return;
+      boardFrom = mode; mode = 'board'; keys.clear(); dragging = false;
+      $('panel').inert = true; $('pause').disabled = true; $('board').hidden = false; $('board-close').focus();
+    }
+    for (const k of ['free', 'course']) { const t = $('board-tab-' + k); t.classList.toggle('on', k === boardKind); t.setAttribute('aria-selected', String(k === boardKind)); }
+    $('board-rule').textContent = boardKind === 'course' ? '오늘의 코스는 모두 같은 운석 배치라 실력으로만 겨뤄요.' : '평소 판(자유 비행)의 오늘 최고 점수끼리 겨뤄요.';
+    const want = boardKind;
     const list = $('board-list'); list.replaceChildren();
     $('board-me').textContent = '불러오는 중…';
     $('board-day').textContent = dayKey().slice(5).replace('-', '월 ') + '일 · 매일 밤 12시에 새로 시작';
     try {
-      const r = await rpc('daily_board', { p_day: dayKey(), p_device: deviceId });
-      if (mode !== 'board') return;
+      const r = await rpc('daily_board', { p_day: dayKey(), p_device: deviceId, p_kind: want });
+      if (mode !== 'board' || want !== boardKind) return;
       for (const e of r.top || []) {
         const li = document.createElement('li'); li.className = 'board-row' + (e.mine ? ' mine' : '');
         li.innerHTML = '<b></b><span></span><em></em>';
@@ -1317,7 +1327,7 @@
       }
       if (!(r.top || []).length) $('board-me').textContent = '아직 아무도 없어요 · 오늘 1등 기회!';
       else if (r.me) $('board-me').textContent = '내 순위 ' + r.me.rank + '위 / ' + r.total + '명' + (r.me.gap ? ' · ' + (r.me.rank - 1) + '위까지 ' + ko(r.me.gap) + '점' : ' · 1등!');
-      else $('board-me').textContent = '오늘의 코스를 하면 순위에 올라가요 · ' + r.total + '명 도전 중';
+      else $('board-me').textContent = (want === 'course' ? '오늘의 코스를 하면' : '한 판 하면') + ' 순위에 올라가요 · ' + r.total + '명 도전 중';
     } catch { if (mode === 'board') $('board-me').textContent = '순위를 불러오지 못했어요 · 인터넷 연결을 확인해 주세요'; }
   }
   function closeBoard() {
@@ -2916,10 +2926,12 @@
     start(course);
   });
   $('over-more').onclick = () => { $('panel').classList.remove('quick'); $('over-more').hidden = true; };
-  $('rank-line').onclick = () => { if ($('rank-line').dataset.act === 'course') start(true); else openBoard(); };
+  $('rank-line').onclick = () => openBoard();
+  $('board-tab-free').onclick = () => openBoard('free');
+  $('board-tab-course').onclick = () => openBoard('course');
   $('nick-save').onclick = saveNick;
   $('nick-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveNick(); } e.stopPropagation(); });
-  $('board-open').onclick = openBoard; $('board-close').onclick = closeBoard;
+  $('board-open').onclick = () => openBoard(); $('board-close').onclick = closeBoard;
   $('pause').onclick = pause;
   $('mask').onclick = useMask;
   $('book-open').onclick = openBook; $('book-close').onclick = closeBook;

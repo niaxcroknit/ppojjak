@@ -121,7 +121,8 @@
 
     <section id="board" class="item-book" role="dialog" aria-modal="true" aria-labelledby="board-title" hidden>
       <div class="book-head"><h2 id="board-title">오늘 순위</h2><button id="board-close" class="icon close" aria-label="닫기">✕</button></div>
-      <p class="book-rule"><span id="board-day"></span><br>오늘의 코스는 모두 같은 운석 배치라 실력으로만 겨뤄요.</p>
+      <div class="board-tabs" role="tablist"><button id="board-tab-free" role="tab" class="on" aria-selected="true">자유 비행</button><button id="board-tab-course" role="tab" aria-selected="false">오늘의 코스</button></div>
+      <p class="book-rule"><span id="board-day"></span><br><span id="board-rule">평소 판(자유 비행)의 오늘 최고 점수끼리 겨뤄요.</span></p>
       <div id="board-me" class="board-me"></div>
       <ol id="board-list" class="board-list"></ol>
     </section>

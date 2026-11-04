@@ -519,3 +519,8 @@ h1.title-ko { letter-spacing: -1px; }
 .board-row:nth-child(1) b { color: #ffd76a; } .board-row:nth-child(2) b { color: #e2e8f0; } .board-row:nth-child(3) b { color: #f0a46b; }
 .board-row em { font-style: normal; color: #fff3c4; }
 .board-row.mine { border-color: #a5f8d5; background: linear-gradient(180deg, #24463f, #1c3430); }
+
+/* v0.17.2 순위 탭: 자유 비행 / 오늘의 코스 */
+.board-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 4px 0 8px; padding: 4px; border-radius: 14px; background: #1b1834; border: 1px solid #342d58; }
+.board-tabs button { font: 900 14px var(--label); padding: 9px 0; border: 0; border-radius: 10px; background: transparent; color: #b4aad6; cursor: pointer; }
+.board-tabs button.on { background: linear-gradient(180deg, #4a3d86, #372d68); color: #fff3c4; box-shadow: inset 0 0 0 1px #7d5fd6; }

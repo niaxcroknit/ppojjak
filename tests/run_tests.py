@@ -62,7 +62,7 @@ window.__nd = {
   setStars: (v) => { stars = v; }, getStars: () => stars,
   trophy: () => ({ ...trophyCount }), coinsLeft: () => coins.length + loot.length, runStars: () => runStars,
   setGauge: (v) => { hyperGauge = v; },
-  ffAtBoss: (n) => { for (let i = 0; i < n && boss; i++) { obstacles = []; orbs = []; bullets = []; weaponLeft = 0; if (boss.claw) boss.claw = null; playerX = targetX = S(boss.x); playerY = targetY = S(boss.y + 20); update(STEP); tick++; } return boss ? boss.hp : 0; },
+  ffAtBoss: (n) => { for (let i = 0; i < n && boss; i++) { obstacles = []; orbs = []; bullets = []; weaponLeft = 0; weaponDrop = null; pickups = []; pebbles = []; if (boss.claw) boss.claw = null; playerX = targetX = S(boss.x); playerY = targetY = S(boss.y + 20); update(STEP); tick++; } return boss ? boss.hp : 0; },
   ffAtUfo: (n) => { obstacles = []; primaryStun = 0; if (alienPhase === 'recover') alienPhase = 'patrol'; for (let i = 0; i < n; i++) { obstacles = []; playerX = targetX = S(ufoX); playerY = targetY = S(ufoY); update(STEP); tick++; } return primaryHp; },
   ys: () => ({ y: playerY, minY: minY(), hyper: hyperLeft }),
   gauge: () => ({ hyperGauge, hyperCharged, hyperLeft, first: pickups.length ? pickups[0].type : '' }),
@@ -634,7 +634,7 @@ async def main():
         check('재시작 에러 없음', not errs, '; '.join(errs[:3]))
         await pg.context.close()
 
-        print('25. 하루 랭킹 (오늘의 코스)')
+        print('25. 하루 랭킹 (자유 비행 · 오늘의 코스)')
         ctx = await b.new_context(viewport={'width': 390, 'height': 844}); pg = await ctx.new_page(); errs = []; sent = []
         pg.on('pageerror', lambda e: errs.append(str(e)))
         async def sb(route):
@@ -653,7 +653,7 @@ async def main():
         rl = await pg.text_content('#rank-line')
         sub = [x for x in sent if x[0] == 'submit_daily']
         check('닉네임 정하면 오늘 순위에 등록 → "오늘 3위 · 2위까지 120점"', '3위' in rl and '120점' in rl and sub and sub[-1][1]['p_nick'] == '뽀짝왕' and sub[-1][2].startswith('sb_publishable_'), rl)
-        check('제출 값: 오늘 날짜 · 기기 ID · 점수 · 시간', sub and len(sub[-1][1]['p_device']) >= 8 and sub[-1][1]['p_secs'] >= 1 and len(sub[-1][1]['p_day']) == 10, str(sub[-1][1] if sub else None))
+        check('제출 값: 오늘 날짜 · 기기 ID · 점수 · 시간 · 코스 구분', sub and len(sub[-1][1]['p_device']) >= 8 and sub[-1][1]['p_secs'] >= 1 and len(sub[-1][1]['p_day']) == 10 and sub[-1][1]['p_kind'] == 'course', str(sub[-1][1] if sub else None))
         await pg.wait_for_timeout(700); await pg.click('#start'); await pg.wait_for_timeout(200)
         await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*4,false)'); await pg.evaluate('__nd.ff(60*4,true)'); await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*5,false)'); await pg.wait_for_timeout(300)
         check('다음 판부터는 닉네임 안 묻고 바로 등록 · 같은 코스로 다시', not await pg.is_visible('#nick-box') and len([x for x in sent if x[0] == 'submit_daily']) == 2)
@@ -662,7 +662,19 @@ async def main():
         me = await pg.text_content('#board-me')
         check('순위 누르면 오늘 순위표(상위 + 내 순위)', await pg.is_visible('#board') and rows == 3 and '2위' in me and '30점' in me, me)
         check('내 줄 강조', 'mine' in (await pg.get_attribute('#board-list li:nth-child(2)', 'class')))
+        check('방금 한 오늘의 코스 탭이 열림', 'on' in (await pg.get_attribute('#board-tab-course', 'class') or ''))
+        await pg.click('#board-tab-free'); await pg.wait_for_timeout(300)
+        bd = [x for x in sent if x[0] == 'daily_board']
+        check('자유 비행 탭 → 자유 비행 순위 불러옴', bd and bd[-1][1]['p_kind'] == 'free' and 'on' in (await pg.get_attribute('#board-tab-free', 'class') or ''))
         await pg.click('#board-close')
+        await ctx.close()
+        ctx = await b.new_context(viewport={'width': 390, 'height': 844}); pg = await ctx.new_page(); sent.clear()
+        await pg.route('https://rbtodhdjwumkmlnpdmcm.supabase.co/**', sb)
+        await pg.goto(URL); await pg.evaluate("localStorage.setItem('neon-drift-nick','뽀짝왕')"); await pg.reload(); await pg.wait_for_timeout(300)
+        await pg.click('#start'); await pg.wait_for_timeout(200)
+        await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*4,false)'); await pg.evaluate('__nd.ff(60*4,true)'); await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*5,false)'); await pg.wait_for_timeout(400)
+        sub = [x for x in sent if x[0] == 'submit_daily']
+        check('일반 판도 자유 비행 순위에 바로 등록', sub and sub[-1][1]['p_kind'] == 'free' and '자유 비행' in await pg.text_content('#rank-line'), await pg.text_content('#rank-line'))
         await ctx.close()
         ctx = await b.new_context(viewport={'width': 390, 'height': 844}); pg = await ctx.new_page()
         await pg.route('https://rbtodhdjwumkmlnpdmcm.supabase.co/**', lambda r: r.abort())
@@ -672,11 +684,8 @@ async def main():
         await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*4,false)'); await pg.evaluate('__nd.ff(60*4,true)'); await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*5,false)'); await pg.wait_for_timeout(600)
         check('인터넷이 없으면 안내만 하고 게임은 그대로', '인터넷' in await pg.text_content('#rank-line'))
         await ctx.close()
-        pg, errs2 = await page(b, {})
-        await pg.click('#start'); await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*4,false)'); await pg.evaluate('__nd.ff(60*4,true)'); await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*5,false)')
-        check('일반 판 결과에는 "오늘의 코스로 순위 도전" 안내', '오늘의 코스' in await pg.text_content('#rank-line'))
+        errs2 = []
         check('랭킹 에러 없음', not errs and not errs2, '; '.join((errs + errs2)[:3]))
-        await pg.context.close()
 
         print('26. 깔끔한 운석 줄 · 부스러기 운석 · 하늘 빙글 구슬')
         pg, errs = await page(b, {})
