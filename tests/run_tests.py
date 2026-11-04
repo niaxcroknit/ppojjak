@@ -53,12 +53,13 @@ window.__nd = {
   stock: (m, l, d) => { masks = m; lives = l; doubleLeft = d; },
   hy: () => ({ masks, lives, doubleLeft, hyperLeft, hyperCharged, doll, refunds: pickups.filter((p) => p.refund).map((p) => p.type), mode }),
   setHyper: (v) => { hyperLeft = v; },
+  kill: () => { invincible = 0; hyperLeft = 0; lives = 0; die('rock', playerX, playerY); for (let i = 0; i < 120 && mode !== 'over'; i++) { obstacles = []; update(STEP); tick++; } return mode; },
   setDoll: (v) => { doll = v; },
   setStars: (v) => { stars = v; }, getStars: () => stars,
   trophy: () => ({ ...trophyCount }), coinsLeft: () => coins.length + loot.length, runStars: () => runStars,
   setGauge: (v) => { hyperGauge = v; },
-  ffAtBoss: (n) => { for (let i = 0; i < n && boss; i++) { obstacles = []; orbs = []; if (boss.claw) boss.claw = null; playerX = targetX = S(boss.x); playerY = targetY = S(boss.y + 20); update(STEP); tick++; } return boss ? boss.hp : 0; },
-  ffAtUfo: (n) => { for (let i = 0; i < n; i++) { obstacles = []; playerX = targetX = S(ufoX); playerY = targetY = S(ufoY); update(STEP); tick++; } return primaryHp; },
+  ffAtBoss: (n) => { for (let i = 0; i < n && boss; i++) { obstacles = []; orbs = []; bullets = []; if (boss.claw) boss.claw = null; playerX = targetX = S(boss.x); playerY = targetY = S(boss.y + 20); update(STEP); tick++; } return boss ? boss.hp : 0; },
+  ffAtUfo: (n) => { obstacles = []; primaryStun = 0; if (alienPhase === 'recover') alienPhase = 'patrol'; for (let i = 0; i < n; i++) { obstacles = []; playerX = targetX = S(ufoX); playerY = targetY = S(ufoY); update(STEP); tick++; } return primaryHp; },
   ys: () => ({ y: playerY, minY: minY(), hyper: hyperLeft }),
   gauge: () => ({ hyperGauge, hyperCharged, hyperLeft, first: pickups.length ? pickups[0].type : '' }),
   rockAt: (dist) => { obstacles = [{ x: playerX + dist - 17, y: playerY - 17, w: 34, h: 34, speed: 0, spin: 0, vx: 0 }]; invincible = 0; lives = 0; },
@@ -610,7 +611,7 @@ async def main():
         await pg.click('#start'); await pg.wait_for_timeout(300)
         await pg.evaluate('__nd.points(70)'); await pg.evaluate('__nd.ffSafe(2)')
         check('플레이 중 최고 기록을 넘으면 "최고 기록 돌파!!"', '최고 기록 돌파' in (await pg.text_content('#splash') or ''))
-        await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*4,false)'); await pg.evaluate('__nd.ff(60*4,true)'); await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*5,false)')
+        await pg.evaluate('__nd.kill()')
         cls = await pg.get_attribute('#panel', 'class')
         nl = await pg.text_content('#near-line')
         check('게임오버 → 짧은 결과 띠(아까움 한 줄)', 'quick' in cls and await pg.is_visible('#near-line') and '신기록' in nl, nl)
@@ -619,7 +620,7 @@ async def main():
         await pg.wait_for_timeout(700)
         await pg.mouse.click(195, 260); await pg.wait_for_timeout(150)
         check('화면 아무 데나 톡 = 바로 다시', (await pg.evaluate('__nd.s()'))['mode'] == 'playing')
-        await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*4,false)'); await pg.evaluate('__nd.ff(60*4,true)'); await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*5,false)')
+        await pg.evaluate('__nd.kill()')
         nl = await pg.text_content('#near-line')
         check('기록 못 깨면 "최고 기록까지 N점!" 또는 더 아까운 한 줄', any(k in nl for k in ['최고 기록까지', '모선까지', '폭주까지', '체력']), nl)
         await pg.mouse.click(195, 260)
