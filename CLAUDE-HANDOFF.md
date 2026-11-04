@@ -1,5 +1,8 @@
 # 뽀짝 우주 대탈출 (구 NEON DRIFT) — github.com/niaxcroknit/ppojjak · AI 작업 전달 메모 (v0.16)
 
+> **최신 기준은 `AGENTS.md`예요.** 이 파일은 버전별 변경 기록이라 일부 규칙(예: 하이퍼 직접 발동, 장식이 다음 판에도 남음, 검사 78개)은 이후 버전에서 바뀌었어요.
+
+
 - 게임 이름은 "뽀짝 우주 대탈출 - 귀여우면 잡혀가는 슈팅 게임"(사용자 결정). 앱 ID·패키지 = `com.ppojjak.spaceescape` — **이미 Play Console에 이 ID로 AAB가 올라감(versionCode 16). 절대 바꾸지 말 것**(사용자의 다른 앱은 com.nia.* 이지만 이 앱은 예외로 확정). 업로드 키 .jks는 사용자가 보관. localStorage 키 `neon-drift-*`와 파일명은 저장 호환 때문에 바꾸지 마세요. 사용자에게는 `tools/make_android_zip.py`로 만든 '폴더 하나 Open' zip을 줍니다(단단·단디와 같은 방식, web 파일을 assets 안에 복사).
 
 2026-10-22 기준 스냅샷입니다. 안드로이드 출시를 목표로 한 플레이 가능한 프로토타입입니다.
