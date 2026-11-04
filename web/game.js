@@ -1328,9 +1328,9 @@
     try {
       const r = await rpc('submit_daily', { p_day: dayKey(), p_device: deviceId, p_nick: nick, p_score: sc, p_secs: Math.max(1, secs), p_kind: kind, p_deco: decoCode() });
       if (!r || !r.ok) {
-        const why = { nick: '닉네임은 1~10자로 해 주세요', nick_banned: '그 닉네임은 쓸 수 없어요 · 다른 걸로!', day: '오늘 순위는 한국 시간 기준이에요', score: '이 기록은 순위에 올릴 수 없어요' }[r && r.error] || '순위 등록에 실패했어요';
+        const why = { taken: "'" + nick + "'은(는) 이미 누가 쓰고 있어요 · 닉네임을 바꿔 주세요", nick: '닉네임은 1~10자로 해 주세요', nick_banned: '그 닉네임은 쓸 수 없어요 · 다른 걸로!', day: '오늘 순위는 한국 시간 기준이에요', score: '이 기록은 순위에 올릴 수 없어요' }[r && r.error] || '순위 등록에 실패했어요';
         rankLine(why);
-        if (r && /nick/.test(r.error)) { pendingRank = { sc, secs, kind }; showNickBox(); }
+        if (r && /nick|taken/.test(r.error)) { pendingRank = { sc, secs, kind }; showNickBox(); }
         return;
       }
       pendingRank = null;
@@ -1338,9 +1338,14 @@
       rankLine(r.rank === 1 ? tag + '오늘 1위! · ' + r.total + '명 중 (내 최고 ' + ko(r.best) + '점)' : tag + '오늘 ' + r.rank + '위 / ' + r.total + '명 · ' + (r.rank - 1) + '위까지 ' + ko(r.gap) + '점!');
     } catch { rankLine('순위를 못 올렸어요 · 인터넷 연결을 확인해 주세요'); }
   }
-  function saveNick() {
+  async function saveNick() {
     const v = ($('nick-input').value || '').replace(/\s+/g, ' ').trim().slice(0, 10);
     if (!v) { $('nick-input').focus(); return; }
+    if (v !== nick) {
+      rankLine('닉네임 확인 중…');
+      const r = await claimNick(v);
+      if (r !== 'ok' && r !== 'offline') { rankLine(nickError(r, v)); $('nick-input').focus(); return; }
+    }
     nick = v; store.set(KEY_NICK, nick);
     $('nick-box').hidden = true;
     if (pendingRank) submitRank(pendingRank.sc, pendingRank.secs, pendingRank.kind);
@@ -1376,8 +1381,10 @@
     { title: '운석은 피해요', text: '손가락으로 끌어서 운석 사이 빈칸으로 쏙! 작은 부스러기는 맞아도 콩 찌그러지기만 해요.' },
     { title: '아이템은 먹어요', text: '토끼 귀는 한 번 막아 주고, ★별탄 캡슐을 먹으면 별탄이 자동으로 나가요. 먹을수록 세져요.' },
     { title: 'UFO한테 잡히면 끝!', text: '외계인은 귀여운 것부터 잡아가요. 톡 치면 위장 가면 · 별탄으로 격추하면 인형을 되찾아요.' },
+    { title: '귀여움 폭주 = 무적 박치기!', text: '게이지가 꽉 차면 4초 동안 무적! 이때는 UFO·모선에 그냥 부딪혀도 내가 이겨요. 쾅! 한 방 격추.' },
     { title: '닉네임 만들기', text: '회원가입 없이, 이 닉네임으로 하루 순위에 올라가요.' },
   ];
+  const NICK_STEP = INTRO.length - 1;
   let introStep = 0, introFrom = 'ready', introThen = null, introOnlyNick = false;
   function openIntro(onlyNick, then) {
     if (!['ready', 'over', 'board'].includes(mode)) return;
@@ -1386,26 +1393,35 @@
     mode = 'intro'; keys.clear(); dragging = false; introThen = then || null; introOnlyNick = !!onlyNick;
     $('panel').inert = true; $('pause').disabled = true; $('intro').hidden = false;
     $('intro-nick-input').value = nick || randomNick();
-    showIntro(onlyNick ? 3 : 0);
+    showIntro(onlyNick ? NICK_STEP : 0);
   }
   function showIntro(i) {
     introStep = i;
     const it = INTRO[i];
     $('intro-title').textContent = it.title; $('intro-text').textContent = it.text;
-    $('intro-nick').hidden = i !== 3; $('intro-art').hidden = i === 3 && introOnlyNick;
+    $('intro-nick').hidden = i !== NICK_STEP; $('intro-art').hidden = i === NICK_STEP && introOnlyNick;
     $('intro-dots').innerHTML = introOnlyNick ? '' : INTRO.map((_, k) => '<i class="' + (k === i ? 'on' : '') + '"></i>').join('');
-    $('intro-skip').textContent = i === 3 ? (introOnlyNick ? '취소' : '나중에') : '건너뛰기';
-    $('intro-next').innerHTML = i < 3 ? '다음 <span>→</span>' : introOnlyNick ? '저장' : '이 닉네임으로 출발! <span>↗\uFE0E</span>';
+    $('intro-skip').textContent = i === NICK_STEP ? (introOnlyNick ? '취소' : '나중에') : '건너뛰기';
+    $('intro-next').innerHTML = i < NICK_STEP ? '다음 <span>→</span>' : introOnlyNick ? '저장' : '이 닉네임으로 출발! <span>↗\uFE0E</span>';
+    $('intro-next').disabled = false;
     $('intro-nick-msg').textContent = '';
-    if (i === 3) setTimeout(() => { if (mode === 'intro') $('intro-nick-input').focus(); }, 50); else $('intro-next').focus();
+    if (i === NICK_STEP) setTimeout(() => { if (mode === 'intro') $('intro-nick-input').focus(); }, 50); else $('intro-next').focus();
     tone(520 + i * 80, 0.05);
   }
-  function closeIntro(saveIt) {
-    if (mode !== 'intro') return;
+  let introBusy = false;
+  async function closeIntro(saveIt) {
+    if (mode !== 'intro' || introBusy) return;
     if (saveIt) {
       const v = cleanNick($('intro-nick-input').value);
       if (!v) { $('intro-nick-msg').textContent = '닉네임을 1~10자로 써 주세요'; $('intro-nick-input').focus(); return; }
-      if (v !== nick) { nick = v; store.set(KEY_NICK, nick); pushProfile(); }
+      if (v !== nick) {
+        introBusy = true; $('intro-next').disabled = true; $('intro-nick-msg').textContent = '닉네임 확인 중…';
+        const r = await claimNick(v);
+        introBusy = false; $('intro-next').disabled = false;
+        if (mode !== 'intro') return;
+        if (r !== 'ok' && r !== 'offline') { $('intro-nick-msg').textContent = nickError(r, v); $('intro-nick-input').focus(); return; }
+        nick = v; store.set(KEY_NICK, nick);
+      }
     }
     if (!introOnlyNick) { tips.intro = true; saveProgress(); }
     $('intro').hidden = true; $('panel').inert = false; $('pause').disabled = false;
@@ -1414,8 +1430,8 @@
     if (introFrom === 'board') { mode = boardFrom; openBoard(); return; }
     if (then) then();
   }
-  function introNext() { if (introStep < 3) showIntro(introStep + 1); else closeIntro(true); }
-  function introSkip() { if (introStep < 3) showIntro(3); else closeIntro(false); }
+  function introNext() { if (introStep < NICK_STEP) showIntro(introStep + 1); else closeIntro(true); }
+  function introSkip() { if (introStep < NICK_STEP) showIntro(NICK_STEP); else closeIntro(false); }
   const introCanvas = $('intro-art'), introView = introCanvas.getContext('2d');
   function renderIntro(t) {
     if (!surfaceReady || low.width < 1 || width < 1 || introCanvas.hidden) return;
@@ -1447,6 +1463,14 @@
       ctx.fillStyle = '#e6d1ff26'; ctx.beginPath(); ctx.moveTo(ux - 17, uy + 10); ctx.lineTo(ux - 80, 190); ctx.lineTo(ux + 40, 190); ctx.lineTo(ux + 17, uy + 10); ctx.closePath(); ctx.fill();
       ufo(S(ux), S(uy + Math.sin(s * 2) * 4), t);
       masked = (s % 3) > 1.4 ? 4 : 0; ship(S(pw * 0.3), 156, t);
+    } else if (introStep === 3) {
+      const ph = (s % 2.4) / 2.4, ux = pw * 0.66, uy = 52, sx = pw * 0.3 + (ux - pw * 0.3) * Math.min(1, ph * 1.8), sy = 156 - (156 - uy - 30) * Math.min(1, ph * 1.8);
+      const hit = ph > 0.55;
+      primaryStun = hit ? 1 : 0; primarySpin = hit ? 0.4 : 0;
+      ufo(S(ux + (hit ? 14 : 0)), S(uy - (hit ? 10 : 0)), t);
+      if (hit) { for (let k = 0; k < 6; k++) { const a = k * 1.05 + s; star(S(ux + Math.cos(a) * 30), S(uy + Math.sin(a) * 24), 5, k % 2 ? '#fff1aa' : '#ff9cc4'); } ctx.font = "16px 'OnePop', sans-serif"; ctx.textAlign = 'center'; ctx.fillStyle = '#fff1aa'; ctx.fillText('쾅!', S(ux), S(uy - 30)); ctx.textAlign = 'start'; }
+      hyperLeft = 3; ship(S(sx), S(sy), t);
+      ctx.strokeStyle = '#ff9cc488'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(S(sx), S(sy), 30 + ((tick >> 2) % 3) * 3, 0, Math.PI * 2); ctx.stroke();
     } else {
       ctx.save(); ctx.translate(S(cx), 100); ctx.scale(1.6, 1.6); ship(0, 0, t); ctx.restore();
     }
@@ -1458,6 +1482,14 @@
   }
   function bulletsArt(x, y, s) {
     for (let i = 0; i < 3; i++) { const by = y - 40 - (((s * 220) + i * 40) % 120); if (by > 0) star(x, S(by), 4, '#fff1a5'); }
+  }
+  // 닉네임은 한 사람만(서버 nicknames 표). 30일 넘게 안 하면 풀림.
+  async function claimNick(v) {
+    try { const r = await rpc('claim_nick', { p_device: deviceId, p_nick: v }); return r && r.ok ? 'ok' : (r && r.error) || 'fail'; }
+    catch { return 'offline'; }
+  }
+  function nickError(code, v) {
+    return { taken: "'" + v + "'은(는) 이미 누가 쓰고 있어요 · 다른 걸로!", nick: '닉네임은 1~10자로 해 주세요', nick_banned: '그 닉네임은 쓸 수 없어요 · 다른 걸로!' }[code] || '닉네임을 저장하지 못했어요 · 잠시 뒤 다시';
   }
   let boardFrom = 'ready';
   async function openBoard(kind) {
@@ -3090,6 +3122,7 @@
   $('rank-line').onclick = () => openBoard();
   $('board-tab-free').onclick = () => openBoard('free');
   $('board-nick').onclick = () => openIntro(true);
+  $('nick-open').onclick = () => openIntro(true);
   $('intro-next').onclick = introNext; $('intro-skip').onclick = introSkip;
   { let sx = null; // 옆으로 밀어서 넘기기
     $('intro').addEventListener('pointerdown', (e) => { sx = e.target.closest('input, button') ? null : e.clientX; });

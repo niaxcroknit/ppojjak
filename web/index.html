@@ -71,7 +71,7 @@
       <button id="over-more" class="book-open over-more" type="button" hidden>결과 보기 · 카톡 자랑하기 ↗&#xFE0E;</button>
       <button id="course-start" class="course-button">오늘의 코스 <small id="course-best">모두 같은 배치</small></button>
       <div id="daily" class="daily"></div>
-      <div class="panel-links"><button id="book-open" class="book-open">발견 도감 ↗&#xFE0E;</button><button id="journey-open" class="book-open">여정 · 지도 ↗&#xFE0E;</button><button id="tutorial-open" class="book-open">연습 비행 ↗&#xFE0E;</button><button id="board-open" class="book-open">오늘 순위 ↗&#xFE0E;</button></div>
+      <div class="panel-links"><button id="book-open" class="book-open">발견 도감 ↗&#xFE0E;</button><button id="journey-open" class="book-open">여정 · 지도 ↗&#xFE0E;</button><button id="tutorial-open" class="book-open">연습 비행 ↗&#xFE0E;</button><button id="board-open" class="book-open">오늘 순위 ↗&#xFE0E;</button><button id="nick-open" class="book-open">닉네임 ✎&#xFE0E;</button></div>
       <div class="hint">상하좌우 드래그 · 탭으로 위장<br><small>PC: 방향키 / WASD 이동 · Space / M 위장 · Esc 일시정지</small></div>
       <div id="debug" class="debug" hidden></div>
     </div>
@@ -126,7 +126,9 @@
       <p id="intro-text" class="intro-text"></p>
       <div id="intro-nick" class="intro-nick" hidden>
         <div class="nick-box"><input id="intro-nick-input" maxlength="10" placeholder="닉네임 (10자까지)" autocomplete="off" enterkeyhint="done" aria-label="닉네임"><button id="intro-dice" type="button">추천</button></div>
-        <small>실명·연락처 말고 귀여운 이름으로! 순위표 꾸미기는 상점에서 ★로 살 수 있어요.</small>
+        <small>닉네임은 나만 쓸 수 있어요(중복 불가) · 언제든 바꿀 수 있어요.</small>
+        <small class="intro-warn">회원가입이 없는 대신, <b>30일 넘게 플레이하지 않으면 닉네임이 풀려서</b> 다른 사람이 가져갈 수 있어요.</small>
+        <small>실명·연락처 말고 귀여운 이름으로!</small>
         <small id="intro-nick-msg" class="intro-nick-msg" role="status"></small>
       </div>
       <button id="intro-next" class="primary intro-next" type="button">다음</button>

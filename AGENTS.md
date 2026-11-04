@@ -35,10 +35,10 @@ tools/build_single.py   web/ → index.html (+icons, manifest 복사)
 tools/make_android_zip.py   "Open만 하면 되는" 독립 Android 프로젝트 zip(dist/ppojjak-android-studio.zip)
 tools/make_store_assets.py  게임 그림 코드로 아이콘·스토어 이미지·스크린샷 재생성
 tools/subset_font.py    나눔스퀘어 네오 서브셋(게임 문구에 새 한글 넣으면 재실행)
-tests/run_tests.py      Playwright 자동 검사 166개 — 수정 후 반드시 실행, 전부 통과해야 함
+tests/run_tests.py      Playwright 자동 검사 170개 — 수정 후 반드시 실행, 전부 통과해야 함
 ```
 
-작업 순서: `web/` 수정 → `python3 tools/build_single.py` → `python3 tests/run_tests.py`(166/166) → 커밋·푸시.
+작업 순서: `web/` 수정 → `python3 tools/build_single.py` → `python3 tests/run_tests.py`(170/170) → 커밋·푸시.
 사용자에게 Android 파일을 줄 때는 `python3 tools/make_android_zip.py`로 만든 zip을 줌(단단·단디 앱 때와 같은 방식: zip 풀고 `ppojjak` 폴더를 **Open**, New Project 아님).
 
 ## 4. 게임 규칙 요약 (현재)
@@ -57,6 +57,7 @@ tests/run_tests.py      Playwright 자동 검사 166개 — 수정 후 반드시
 - **하루 순위(v0.17, v0.17.2부터 두 종류)**: 탭 '자유 비행'(일반 판, `kind='free'`) / '오늘의 코스'(`kind='course'`). 모든 판이 자기 종류 순위에 올라감. 테이블 PK = (day, kind, device), RPC에 `p_kind`(기본 'course'). Supabase 프로젝트 `ppojjak`(ref `rbtodhdjwumkmlnpdmcm`, 서울). 테이블 `daily_scores`(RLS 켜짐, 정책 없음) — 접근은 RPC `submit_daily`·`daily_board`(SECURITY DEFINER)만. 한국 날짜 기준 하루, 기기당 최고점만, 닉네임 10자·금칙어(`banned_words`), 점수 상한 `secs*60+5000`. 클라이언트 키는 publishable 키(공개돼도 됨). 앱은 `MainActivity`의 `RANK_HOST`만 인터넷 통과. 닉네임을 정해야만 전송됨.
 - **운석 줄 · 부스러기(v0.17.2)**: 사용자가 '따닥따닥 붙은 것'도 '들쭉날쭉 지저분한 것'도 싫어함 → 줄은 항상 한 줄 정렬. 기본 = 징검다리 줄(84px 간격, 줄마다 반 칸 엇갈림), 몰림 구간·아이템 줄 = 벽 줄(42px 간격, 서로 안 붙음 + 큰 빈칸). 부스러기 운석(작고 빠름) 3.5~6.5초마다 하나, 맞으면 안 죽고 찌그러짐. 빙글 구슬은 자동 별탄에 안 터짐, UFO가 격추·기절 중이면 몰림 1.8초째 하늘에서 내려옴(뒤집기가 사라지지 않게). 시작 속도 165px/s.
 - **처음 설명 화면 + 닉네임(v0.17.3)**: 처음 '출발하기'를 누르면 `#intro` 4장(운석 피하기 → 아이템 먹기 → UFO 조심 → 닉네임 만들기)이 먼저 뜸. 그림은 게임 그림 함수로 실시간(`renderIntro`). 닉네임은 회원가입 없이 기기에 저장(`neon-drift-nick`), '추천' 버튼은 귀여운 랜덤 이름. 끝나면 `tips.intro` 저장 후 연습 비행. 순위표의 '내 닉네임 · 바꾸기'로 닉네임만 다시 바꿈(`set_profile` RPC로 오늘 기록에도 반영).
+- **닉네임 중복 금지(v0.17.4)**: 서버 `nicknames` 표(공백·대소문자 무시 키). `claim_nick` RPC로 맡기고, 바꾸면 예전 닉네임은 풀림. 플레이(순위 등록)할 때마다 사용 기간 연장, **30일 넘게 안 하면 풀려서** 다른 사람이 가져갈 수 있음(설명 화면에 안내). 시작 화면 '닉네임 ✎'·순위표에서 바꾸기. 설명 화면은 5장(폭주 박치기 장 추가).
 - **순위표 꾸미기(v0.17.3)**: 상점에서 ★로 닉네임 색(`NICK_COLORS`)·배지(`BADGES`, 게임 아이콘)·줄 모양(`FRAMES`) 구매. 서버엔 `deco` 코드 `n=..;b=..;f=..`만 저장, 그릴 땐 목록에 있는 값만 씀(`parseDeco`). 구매 기록은 기기 저장이라 서버가 검증하진 않음(꾸미기라 괜찮음).
 - **공유**: "카톡으로 자랑하기" → 결과 메시지 + 결과 링크(`#r1.…` 토큰). 앱에서는 결과 화면을 PixelCopy로 캡처해 사진+메시지 공유(메시지는 클립보드에도). 친구가 링크를 열면 기록 카드 + "이 기록 깨기". 링크 주소 = GitHub Pages(`SHARE_URL`).
 

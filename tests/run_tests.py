@@ -640,6 +640,8 @@ async def main():
         pg.on('pageerror', lambda e: errs.append(str(e)))
         async def sb(route):
             req = route.request; body = json.loads(req.post_data or '{}'); sent.append((req.url.rsplit('/', 1)[-1], body, req.headers.get('apikey', '')))
+            if req.url.endswith('claim_nick'):
+                await route.fulfill(status=200, content_type='application/json', body=json.dumps({'ok': False, 'error': 'taken'} if body.get('p_nick') == '중복이' else {'ok': True, 'nick': body.get('p_nick')})); return
             if req.url.endswith('set_profile'):
                 await route.fulfill(status=200, content_type='application/json', body=json.dumps({'ok': True, 'rows': 1})); return
             if req.url.endswith('submit_daily'):
@@ -722,14 +724,18 @@ async def main():
         art = await pg.evaluate("(() => { const c = document.getElementById('intro-art'); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 400) if (d[i] > 0) n++; return n; })()")
         check('설명 그림이 그려짐(운석·기체)', art > 50, str(art))
         titles = []
-        for _ in range(3):
+        for _ in range(4):
             await pg.click('#intro-next'); await pg.wait_for_timeout(120); titles.append(await pg.text_content('#intro-title'))
-        check('운석 → 아이템 → UFO → 닉네임 순서', '아이템' in titles[0] and 'UFO' in titles[1] and '닉네임' in titles[2], str(titles))
+        check('운석 → 아이템 → UFO → 폭주 박치기 → 닉네임 순서', '아이템' in titles[0] and 'UFO' in titles[1] and '폭주' in titles[2] and '닉네임' in titles[3], str(titles))
+        check('닉네임 화면에 중복 불가 · 30일 안내', '중복' in await pg.text_content('#intro-nick') and '30일' in await pg.text_content('#intro-nick'))
         v1 = await pg.input_value('#intro-nick-input'); await pg.click('#intro-dice'); v2 = await pg.input_value('#intro-nick-input')
         check('닉네임 추천이 미리 채워지고 추천 버튼으로 바뀜', 2 <= len(v1) <= 10 and 2 <= len(v2) <= 10, v1 + ' / ' + v2)
         await pg.fill('#intro-nick-input', '  '); await pg.click('#intro-next'); await pg.wait_for_timeout(100)
         check('빈 닉네임은 안 됨', await pg.is_visible('#intro') and '1~10자' in await pg.text_content('#intro-nick-msg'))
+        await pg.fill('#intro-nick-input', '중복이'); await pg.click('#intro-next'); await pg.wait_for_timeout(300)
+        check('이미 있는 닉네임이면 막고 안내', await pg.is_visible('#intro') and '이미' in await pg.text_content('#intro-nick-msg'), await pg.text_content('#intro-nick-msg'))
         await pg.fill('#intro-nick-input', '우주토끼'); await pg.click('#intro-next'); await pg.wait_for_timeout(400)
+        check('저장 전에 서버에 닉네임 맡기기', any(x[0] == 'claim_nick' and x[1]['p_nick'] == '우주토끼' for x in sent))
         st = await pg.evaluate('__nd.s()')
         check('닉네임 저장 후 바로 게임(연습 비행) 시작', st['mode'] == 'playing' and await pg.evaluate("localStorage.getItem('neon-drift-nick')") == '우주토끼')
         await pg.reload(); await pg.wait_for_timeout(400); await pg.click('#start'); await pg.wait_for_timeout(200)
@@ -759,12 +765,13 @@ async def main():
         await pg.wait_for_timeout(700)
         await pg.evaluate("window.__boardDeco = true")
         await pg.click('#rank-line'); await pg.wait_for_timeout(300)
+        check('시작 화면에도 닉네임 바꾸기 버튼', await pg.locator('#nick-open').count() == 1)
         check('순위표에서 닉네임 바꾸기 버튼', '우주토끼' in await pg.text_content('#board-nick'))
         await pg.click('#board-nick'); await pg.wait_for_timeout(150)
         check('닉네임만 바꾸는 화면', await pg.is_visible('#intro') and await pg.is_visible('#intro-nick') and await pg.input_value('#intro-nick-input') == '우주토끼')
         await pg.fill('#intro-nick-input', '별사탕왕'); await pg.click('#intro-next'); await pg.wait_for_timeout(900)
-        prof = [x for x in sent if x[0] == 'set_profile']
-        check('저장하면 순위표로 돌아오고 새 닉네임 반영', await pg.is_visible('#board') and '별사탕왕' in await pg.text_content('#board-nick') and prof and prof[-1][1]['p_nick'] == '별사탕왕')
+        cl = [x for x in sent if x[0] == 'claim_nick']
+        check('저장하면 순위표로 돌아오고 새 닉네임 반영(예전 닉네임은 풀림)', await pg.is_visible('#board') and '별사탕왕' in await pg.text_content('#board-nick') and cl and cl[-1][1]['p_nick'] == '별사탕왕')
         check('설명·닉네임·꾸미기 에러 없음', not errs, '; '.join(errs[:3]))
         await ctx.close()
         await b.close()

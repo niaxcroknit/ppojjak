@@ -562,3 +562,7 @@ h1.title-ko { letter-spacing: -1px; }
 .intro-nick .nick-box { margin: 0; min-width: 0; }
 .intro-nick .nick-box input { width: 0; }
 .intro-art { height: 200px; }
+
+.intro-nick .intro-warn { color: #ffd76a; background: #3a2f1c; border: 1px solid #6a5426; border-radius: 10px; padding: 8px 10px; line-height: 1.5; }
+.intro-nick .intro-warn b { color: #fff1aa; }
+.intro-next:disabled { opacity: .6; }
