@@ -119,11 +119,25 @@
       <p class="book-rule">친구가 늘수록 기체가 귀여워져서… UFO가 더 자주 노려요.</p>
     </section>
 
+    <section id="intro" class="item-book intro" role="dialog" aria-modal="true" aria-labelledby="intro-title" hidden>
+      <div class="intro-top"><span id="intro-dots" class="intro-dots"></span><button id="intro-skip" class="intro-skip" type="button">건너뛰기</button></div>
+      <canvas id="intro-art" class="intro-art" aria-hidden="true"></canvas>
+      <h2 id="intro-title" class="intro-title"></h2>
+      <p id="intro-text" class="intro-text"></p>
+      <div id="intro-nick" class="intro-nick" hidden>
+        <div class="nick-box"><input id="intro-nick-input" maxlength="10" placeholder="닉네임 (10자까지)" autocomplete="off" enterkeyhint="done" aria-label="닉네임"><button id="intro-dice" type="button">추천</button></div>
+        <small>실명·연락처 말고 귀여운 이름으로! 순위표 꾸미기는 상점에서 ★로 살 수 있어요.</small>
+        <small id="intro-nick-msg" class="intro-nick-msg" role="status"></small>
+      </div>
+      <button id="intro-next" class="primary intro-next" type="button">다음</button>
+    </section>
+
     <section id="board" class="item-book" role="dialog" aria-modal="true" aria-labelledby="board-title" hidden>
       <div class="book-head"><h2 id="board-title">오늘 순위</h2><button id="board-close" class="icon close" aria-label="닫기">✕</button></div>
       <div class="board-tabs" role="tablist"><button id="board-tab-free" role="tab" class="on" aria-selected="true">자유 비행</button><button id="board-tab-course" role="tab" aria-selected="false">오늘의 코스</button></div>
       <p class="book-rule"><span id="board-day"></span><br><span id="board-rule">평소 판(자유 비행)의 오늘 최고 점수끼리 겨뤄요.</span></p>
       <div id="board-me" class="board-me"></div>
+      <button id="board-nick" class="board-nick" type="button">닉네임 만들기</button>
       <ol id="board-list" class="board-list"></ol>
     </section>
 
@@ -140,6 +154,11 @@
       <div id="hangar-paints" class="skins"></div>
       <h3 class="hangar-h" data-h="{rocket} 불꽃 색" data-s="한 번 사면 계속"></h3>
       <div id="hangar-flames" class="skins"></div>
+      <h3 class="hangar-h pink" data-h="{crown} 순위표 꾸미기" data-s="한 번 사면 계속"></h3>
+      <ol class="board-list deco-preview"><li id="deco-preview" class="board-row mine"><b>1</b><span></span><em>9,999점</em></li></ol>
+      <p class="deco-sub">닉네임 색</p><div id="hangar-nickc" class="skins"></div>
+      <p class="deco-sub">배지</p><div id="hangar-badge" class="skins"></div>
+      <p class="deco-sub">줄 꾸미기</p><div id="hangar-frame" class="skins"></div>
       <div class="hangar-info">
         <h3 class="hangar-h mint" data-h="{rabbit} 장식" data-s="구매 X · 판에서 먹으면 달려요"></h3>
         <p class="hangar-note small">게임오버면 떨어져요. 70초 넘어서 같은 장식을 3번 먹으면 황금 각인 — 다음 판부터 금빛으로 달려요.</p>

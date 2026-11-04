@@ -122,6 +122,22 @@
     candy: { name: '사탕 불꽃', price: 50, out: '#ff8fb8', core: '#ffe0f0' },
     leaf: { name: '새싹 불꽃', price: 50, out: '#7fe3a8', core: '#e6fff6' },
   };
+  // v0.17.3 순위표 꾸미기(★로 사는 것). 서버에는 짧은 코드(n=..;b=..;f=..)만 보내고, 그릴 때는 이 목록에 있는 것만 씀
+  const NICK_COLORS = {
+    basic: { name: '기본 하양', price: 0, c: '#f4ebff' }, mint: { name: '민트', price: 40, c: '#a5f8d5' }, peach: { name: '복숭아', price: 40, c: '#ffc69a' },
+    pink: { name: '딸기 우유', price: 60, c: '#ff9cc4' }, sky: { name: '하늘', price: 60, c: '#9fd4ff' }, gold: { name: '반짝 금색', price: 120, c: '#ffd76a' },
+  };
+  const BADGES = {
+    none: { name: '없음', price: 0 }, rabbit: { name: '토끼 귀', price: 50 }, duck: { name: '고무 오리', price: 50 }, chick: { name: '병아리', price: 60 },
+    rocket: { name: '로켓', price: 70 }, crown: { name: '왕관', price: 100 }, diamond: { name: '다이아', price: 130 },
+  };
+  const FRAMES = {
+    basic: { name: '기본', price: 0, bg: '#2a2548' }, galaxy: { name: '한밤 은하', price: 80, bg: 'linear-gradient(90deg,#2b2266,#3d2a74 55%,#1f3a5c)' },
+    sunset: { name: '노을', price: 80, bg: 'linear-gradient(90deg,#4a2a46,#6a3b45 60%,#7a5136)' }, mint: { name: '민트 젤리', price: 80, bg: 'linear-gradient(90deg,#1f4740,#2b5c50)' },
+    candy: { name: '사탕 줄무늬', price: 100, bg: 'repeating-linear-gradient(135deg,#4b2a4f 0 10px,#5d3363 10px 20px)' }, gold: { name: '황금 테두리', price: 150, bg: 'linear-gradient(90deg,#4a3a1c,#5e4a22)' },
+  };
+  const DECO_TABLES = { nickc: NICK_COLORS, badge: BADGES, frame: FRAMES };
+  const DECO_DEFAULT = { nickc: 'basic', badge: 'none', frame: 'basic' };
   // 점수표 (v0.11): 버틴 시간(초당 10점)이 점수의 절반쯤 되도록 보너스를 낮췄습니다.
   const PTS = { item: 10, diamond: 60, overflow: 20, fish: 40, discoRock: 3, ufoHit: 1, ufoKill: 60, visitorKill: 40,
     starRock: 3, bossHit: 1, boss: 250, rescueAgain: 100, smash: 5, orb: 1, mission: 100 };
@@ -185,7 +201,7 @@
   let runDress = {}, runTrophy = {}, runFriends = {};
   let refunded14 = false, refundNote = 0;
   let perks = {}; // 영구 업그레이드
-  let stars = 0, owned = {}, skins = { paint: { basic: true }, flame: { basic: true } }, shipPaint = 'basic', flame = 'basic'; // 별조각 · 산 장식 · 산 색 // 구한 친구 · 도착한 가장 먼 행성 · 체포한 보스
+  let stars = 0, owned = {}, skins = { paint: { basic: true }, flame: { basic: true }, nickc: { basic: true }, badge: { none: true }, frame: { basic: true } }, shipPaint = 'basic', flame = 'basic', deco = { ...DECO_DEFAULT }; // 별조각 · 산 장식 · 산 색 // 구한 친구 · 도착한 가장 먼 행성 · 체포한 보스
   let daily = { date: '', best: 0, done: false, streak: 0, lastDone: '' };
   // 입력
   const keys = new Set();
@@ -291,6 +307,9 @@
     else for (const k of DRESS_KEYS) if ((counts[k] || 0) >= UNLOCK_AT) owned[k] = true; // v0.12 이하: 이미 열린 장식은 산 것으로
     if (data.skins && typeof data.skins === 'object')
       for (const kind of ['paint', 'flame']) for (const k of Object.keys(kind === 'paint' ? PAINTS : FLAMES)) if (data.skins[kind] && data.skins[kind][k] === true) skins[kind][k] = true;
+    if (data.skins && typeof data.skins === 'object')
+      for (const kind of Object.keys(DECO_TABLES)) for (const k of Object.keys(DECO_TABLES[kind])) if (data.skins[kind] && data.skins[kind][k] === true) skins[kind][k] = true;
+    if (data.deco && typeof data.deco === 'object') for (const kind of Object.keys(DECO_TABLES)) if (DECO_TABLES[kind][data.deco[kind]] && skins[kind][data.deco[kind]]) deco[kind] = data.deco[kind];
     if (data.perks && typeof data.perks === 'object') for (const k of Object.keys(PERKS)) if (data.perks[k] === true) perks[k] = true;
     if (PAINTS[data.paint] && skins.paint[data.paint]) shipPaint = data.paint;
     if (FLAMES[data.flame] && skins.flame[data.flame]) flame = data.flame;
@@ -306,7 +325,7 @@
     for (const k of DRESS_KEYS) if (unlocked(k) && !(k in loadout)) loadout[k] = true;
   }
   function saveProgress() {
-    store.set(KEY_PROGRESS, JSON.stringify({ found, observed, trophies, loadout, counts, gold, tips, friends, reached, arrested, stars, owned, skins, paint: shipPaint, flame, perks, trophyCount, trophyOn, refunded14 }));
+    store.set(KEY_PROGRESS, JSON.stringify({ found, observed, trophies, loadout, counts, gold, tips, friends, reached, arrested, stars, owned, skins, paint: shipPaint, flame, deco, perks, trophyCount, trophyOn, refunded14 }));
   }
   const unlocked = (k) => !!owned[k]; // v0.13: 장식은 발견 후 ★별조각으로 구매
   // 황금 각인(영구): 깊은 궤도에서 3번 먹은 장식은, 다음 판부터 먹을 때마다 금빛으로 달려요.
@@ -822,6 +841,29 @@
       b.children[2].textContent = have ? '격추 기록 ×' + trophyCount[k] : T.from;
       tbox.append(b);
     }
+    for (const [kind, table, boxId] of [['nickc', NICK_COLORS, 'hangar-nickc'], ['badge', BADGES, 'hangar-badge'], ['frame', FRAMES, 'hangar-frame']]) {
+      const box = $(boxId);
+      box.replaceChildren();
+      for (const [k, sk] of Object.entries(table)) {
+        const have = !!skins[kind][k], on = deco[kind] === k, id = kind + ':' + k, b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'skin deco-' + kind + (on ? ' on' : '') + (have ? '' : ' shop') + (buyArmed === id ? ' armed' : '');
+        b.setAttribute('aria-pressed', String(on));
+        b.innerHTML = '<i></i><small></small><em></em>';
+        if (kind === 'nickc') b.firstChild.style.background = sk.c;
+        else if (kind === 'frame') { b.firstChild.style.background = sk.bg; if (k === 'gold') b.firstChild.style.boxShadow = 'inset 0 0 0 2px #ffd76a'; }
+        else b.firstChild.innerHTML = k === 'none' ? '' : icon(k, 'ico');
+        b.children[1].textContent = sk.name;
+        b.children[2].textContent = on ? '사용 중' : have ? '고르기' : buyArmed === id ? '눌러서 구매!' : '★ ' + sk.price;
+        b.onclick = () => {
+          const pick = () => { deco[kind] = k; saveProgress(); refreshHangar(); tone(620); pushProfile(); };
+          if (have) pick();
+          else tryBuy(id, sk.price, () => { skins[kind][k] = true; deco[kind] = k; pushProfile(); });
+        };
+        box.append(b);
+      }
+    }
+    decorateRow($('deco-preview'), nick || '내 닉네임', decoCode(), true);
     for (const [kind, table, boxId] of [['paint', PAINTS, 'hangar-paints'], ['flame', FLAMES, 'hangar-flames']]) {
       const box = $(boxId);
       box.replaceChildren();
@@ -862,7 +904,7 @@
     if (!['ready', 'over', 'playing', 'paused'].includes(mode)) return;
     hangarFrom = mode; mode = 'hangar'; keys.clear(); dragging = false; buyArmed = '';
     $('panel').inert = true; $('pause').disabled = true; $('hangar').hidden = false;
-    hangarMsg('★는 업그레이드 · 기체 색 · 불꽃 색을 사는 데 써요');
+    hangarMsg('★는 업그레이드 · 기체 색 · 불꽃 색 · 순위표 꾸미기에 써요');
     refreshHangar(); $('hangar-close').focus();
   }
   function closeHangar() {
@@ -972,6 +1014,7 @@
   // 9. 판 진행 (시작 · 일시정지 · 재개 · 종료)
   // ═══════════════════════════════════════════════════════════════
   function start(daily = false, practice = false) {
+    if (!tips.intro && !practice && (mode === 'ready' || mode === 'over')) { openIntro(false, () => start(daily, practice)); return; } // 처음 한 번: 설명 화면 + 닉네임
     if (rival) rival.beaten = false;
     course = !!daily; courseSeed = seedOf('neon-drift:' + dayKey());
     resetRun();
@@ -1283,7 +1326,7 @@
   async function submitRank(sc, secs, kind = 'free') {
     rankLine('오늘 순위 올리는 중…');
     try {
-      const r = await rpc('submit_daily', { p_day: dayKey(), p_device: deviceId, p_nick: nick, p_score: sc, p_secs: Math.max(1, secs), p_kind: kind });
+      const r = await rpc('submit_daily', { p_day: dayKey(), p_device: deviceId, p_nick: nick, p_score: sc, p_secs: Math.max(1, secs), p_kind: kind, p_deco: decoCode() });
       if (!r || !r.ok) {
         const why = { nick: '닉네임은 1~10자로 해 주세요', nick_banned: '그 닉네임은 쓸 수 없어요 · 다른 걸로!', day: '오늘 순위는 한국 시간 기준이에요', score: '이 기록은 순위에 올릴 수 없어요' }[r && r.error] || '순위 등록에 실패했어요';
         rankLine(why);
@@ -1302,6 +1345,120 @@
     $('nick-box').hidden = true;
     if (pendingRank) submitRank(pendingRank.sc, pendingRank.secs, pendingRank.kind);
   }
+  // ── 순위표 꾸미기 ──
+  const decoCode = () => 'n=' + deco.nickc + ';b=' + deco.badge + ';f=' + deco.frame;
+  function parseDeco(s) {
+    const d = { ...DECO_DEFAULT }, map = { n: 'nickc', b: 'badge', f: 'frame' };
+    for (const part of String(s || '').split(';')) { const [a, v] = part.split('='); const kind = map[a]; if (kind && DECO_TABLES[kind][v]) d[kind] = v; }
+    return d;
+  }
+  function decorateRow(li, name, code, mine) {
+    const d = parseDeco(code);
+    li.className = 'board-row f-' + d.frame + (mine ? ' mine' : '');
+    const sp = li.children[1]; sp.replaceChildren();
+    if (d.badge !== 'none') { const w = document.createElement('i'); w.className = 'badge'; w.innerHTML = icon(d.badge, 'ico'); sp.append(w); }
+    const n = document.createElement('span'); n.className = 'nm'; n.textContent = name; n.style.color = NICK_COLORS[d.nickc].c; sp.append(n);
+  }
+  let profileTimer = 0;
+  function pushProfile() { // 오늘 이미 올라간 내 기록에도 닉네임·꾸미기를 바로 반영
+    if (!nick) return;
+    clearTimeout(profileTimer);
+    profileTimer = setTimeout(() => { rpc('set_profile', { p_day: dayKey(), p_device: deviceId, p_nick: nick, p_deco: decoCode() }).catch(() => {}); }, 600);
+  }
+  // ── 회원가입 없는 닉네임 ──
+  const NICK_A = ['용감한', '말랑한', '반짝', '졸린', '씩씩한', '뽀짝', '몰래', '빙글', '통통', '쪼꼬미', '수줍은', '날쌘'];
+  const NICK_B = ['토끼', '삐약이', '냥냥', '곰돌', '펭귄', '햄찌', '우주콩', '별사탕', '오리', '다람쥐'];
+  const randomNick = () => (NICK_A[Math.floor(Math.random() * NICK_A.length)] + NICK_B[Math.floor(Math.random() * NICK_B.length)]).slice(0, 8) + Math.floor(10 + Math.random() * 90);
+  const cleanNick = (v) => (v || '').replace(/\s+/g, ' ').trim().slice(0, 10);
+
+  // ── 처음 시작할 때 보여 주는 설명 화면(운석 · 아이템 · UFO) + 닉네임 ──
+  const INTRO = [
+    { title: '운석은 피해요', text: '손가락으로 끌어서 운석 사이 빈칸으로 쏙! 작은 부스러기는 맞아도 콩 찌그러지기만 해요.' },
+    { title: '아이템은 먹어요', text: '토끼 귀는 한 번 막아 주고, ★별탄 캡슐을 먹으면 별탄이 자동으로 나가요. 먹을수록 세져요.' },
+    { title: 'UFO한테 잡히면 끝!', text: '외계인은 귀여운 것부터 잡아가요. 톡 치면 위장 가면 · 별탄으로 격추하면 인형을 되찾아요.' },
+    { title: '닉네임 만들기', text: '회원가입 없이, 이 닉네임으로 하루 순위에 올라가요.' },
+  ];
+  let introStep = 0, introFrom = 'ready', introThen = null, introOnlyNick = false;
+  function openIntro(onlyNick, then) {
+    if (!['ready', 'over', 'board'].includes(mode)) return;
+    if (mode === 'board') { $('board').hidden = true; introFrom = 'board'; }
+    else introFrom = mode;
+    mode = 'intro'; keys.clear(); dragging = false; introThen = then || null; introOnlyNick = !!onlyNick;
+    $('panel').inert = true; $('pause').disabled = true; $('intro').hidden = false;
+    $('intro-nick-input').value = nick || randomNick();
+    showIntro(onlyNick ? 3 : 0);
+  }
+  function showIntro(i) {
+    introStep = i;
+    const it = INTRO[i];
+    $('intro-title').textContent = it.title; $('intro-text').textContent = it.text;
+    $('intro-nick').hidden = i !== 3; $('intro-art').hidden = i === 3 && introOnlyNick;
+    $('intro-dots').innerHTML = introOnlyNick ? '' : INTRO.map((_, k) => '<i class="' + (k === i ? 'on' : '') + '"></i>').join('');
+    $('intro-skip').textContent = i === 3 ? (introOnlyNick ? '취소' : '나중에') : '건너뛰기';
+    $('intro-next').innerHTML = i < 3 ? '다음 <span>→</span>' : introOnlyNick ? '저장' : '이 닉네임으로 출발! <span>↗\uFE0E</span>';
+    $('intro-nick-msg').textContent = '';
+    if (i === 3) setTimeout(() => { if (mode === 'intro') $('intro-nick-input').focus(); }, 50); else $('intro-next').focus();
+    tone(520 + i * 80, 0.05);
+  }
+  function closeIntro(saveIt) {
+    if (mode !== 'intro') return;
+    if (saveIt) {
+      const v = cleanNick($('intro-nick-input').value);
+      if (!v) { $('intro-nick-msg').textContent = '닉네임을 1~10자로 써 주세요'; $('intro-nick-input').focus(); return; }
+      if (v !== nick) { nick = v; store.set(KEY_NICK, nick); pushProfile(); }
+    }
+    if (!introOnlyNick) { tips.intro = true; saveProgress(); }
+    $('intro').hidden = true; $('panel').inert = false; $('pause').disabled = false;
+    mode = introFrom === 'board' ? 'ready' : introFrom; keys.clear(); sync();
+    const then = introThen; introThen = null;
+    if (introFrom === 'board') { mode = boardFrom; openBoard(); return; }
+    if (then) then();
+  }
+  function introNext() { if (introStep < 3) showIntro(introStep + 1); else closeIntro(true); }
+  function introSkip() { if (introStep < 3) showIntro(3); else closeIntro(false); }
+  const introCanvas = $('intro-art'), introView = introCanvas.getContext('2d');
+  function renderIntro(t) {
+    if (!surfaceReady || low.width < 1 || width < 1 || introCanvas.hidden) return;
+    const pw = Math.min(width, introCanvas.getBoundingClientRect().width || 0), H = 200;
+    if (pw < 1) return;
+    // 그림만 잠깐 그리기 위해 판 상태를 저장했다가 되돌림
+    const keep = { obstacles, pickups, playerX, playerY, invincible, flipLeft, flipSpin, impactLeft, squishLeft, weaponLeft, masked, magnetLeft, dents, hyperLeft, primaryStun, primarySpin, elapsed, taste };
+    obstacles = []; pickups = []; invincible = flipLeft = flipSpin = impactLeft = squishLeft = weaponLeft = masked = magnetLeft = hyperLeft = primaryStun = primarySpin = 0; dents = []; elapsed = t / 1000; taste = 0;
+    ctx.clearRect(0, 0, width, height);
+    const s = t / 1000, cx = pw / 2;
+    if (introStep === 0) {
+      const y = 22 + ((s * 34) % 46), gapL = cx - 46, gapR = cx + 46;
+      for (let x = 22; x < pw - 14; x += 42) if (x + 17 < gapL || x - 17 > gapR) obstacles.push({ x: x - 17, y: y - 17, spin: x, vx: 0 });
+      drawRocks();
+      ctx.strokeStyle = '#a5f8d5'; ctx.lineWidth = 2; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(S(cx), y + 22); ctx.lineTo(S(cx), 128); ctx.stroke(); ctx.setLineDash([]);
+      ship(S(cx + Math.sin(s * 2.2) * 10), 160, t);
+    } else if (introStep === 1) {
+      const sx = cx + Math.sin(s * 1.6) * (pw * 0.22);
+      for (const [k, x] of [['rabbit', pw * 0.28], ['crown', pw * 0.72]]) {
+        const iy = S(52 + Math.sin(s * 3 + x) * 3);
+        ellipse(S(x), iy, 20, 20, '#312d50'); ctx.strokeStyle = '#b3e2bc'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(S(x), iy, 20, 0, Math.PI * 2); ctx.stroke();
+        ctx.save(); ctx.translate(S(x), iy); ctx.scale(1.2, 1.2); drawIcon(ctx, k); ctx.restore();
+      }
+      ellipse(S(cx), 52, 22, 22, '#55412a'); ctx.strokeStyle = '#ffe39b'; ctx.beginPath(); ctx.arc(S(cx), 52, 22, 0, Math.PI * 2); ctx.stroke(); star(S(cx), 52, 13, '#ffe39b');
+      weaponLeft = 9; ship(S(sx), 160, t);
+      bulletsArt(S(sx), 160, s);
+    } else if (introStep === 2) {
+      const ux = pw * 0.7, uy = 46;
+      ctx.fillStyle = '#e6d1ff26'; ctx.beginPath(); ctx.moveTo(ux - 17, uy + 10); ctx.lineTo(ux - 80, 190); ctx.lineTo(ux + 40, 190); ctx.lineTo(ux + 17, uy + 10); ctx.closePath(); ctx.fill();
+      ufo(S(ux), S(uy + Math.sin(s * 2) * 4), t);
+      masked = (s % 3) > 1.4 ? 4 : 0; ship(S(pw * 0.3), 156, t);
+    } else {
+      ctx.save(); ctx.translate(S(cx), 100); ctx.scale(1.6, 1.6); ship(0, 0, t); ctx.restore();
+    }
+    ({ obstacles, pickups, playerX, playerY, invincible, flipLeft, flipSpin, impactLeft, squishLeft, weaponLeft, masked, magnetLeft, dents, hyperLeft, primaryStun, primarySpin, elapsed, taste } = keep);
+    const w = Math.round(pw * DPR), h = Math.round(H * DPR);
+    if (introCanvas.width !== w || introCanvas.height !== h) { introCanvas.width = w; introCanvas.height = h; }
+    introView.imageSmoothingEnabled = false; introView.clearRect(0, 0, w, h);
+    introView.drawImage(low, 0, 0, pw / PX, H / PX, 0, 0, w, h);
+  }
+  function bulletsArt(x, y, s) {
+    for (let i = 0; i < 3; i++) { const by = y - 40 - (((s * 220) + i * 40) % 120); if (by > 0) star(x, S(by), 4, '#fff1a5'); }
+  }
   let boardFrom = 'ready';
   async function openBoard(kind) {
     if (kind) boardKind = kind;
@@ -1312,6 +1469,7 @@
     }
     for (const k of ['free', 'course']) { const t = $('board-tab-' + k); t.classList.toggle('on', k === boardKind); t.setAttribute('aria-selected', String(k === boardKind)); }
     $('board-rule').textContent = boardKind === 'course' ? '오늘의 코스는 모두 같은 운석 배치라 실력으로만 겨뤄요.' : '평소 판(자유 비행)의 오늘 최고 점수끼리 겨뤄요.';
+    $('board-nick').textContent = nick ? '내 닉네임 ' + nick + ' · 바꾸기 ✎\uFE0E' : '닉네임 만들기 ✎\uFE0E';
     const want = boardKind;
     const list = $('board-list'); list.replaceChildren();
     $('board-me').textContent = '불러오는 중…';
@@ -1320,9 +1478,10 @@
       const r = await rpc('daily_board', { p_day: dayKey(), p_device: deviceId, p_kind: want });
       if (mode !== 'board' || want !== boardKind) return;
       for (const e of r.top || []) {
-        const li = document.createElement('li'); li.className = 'board-row' + (e.mine ? ' mine' : '');
+        const li = document.createElement('li');
         li.innerHTML = '<b></b><span></span><em></em>';
-        li.children[0].textContent = e.rank; li.children[1].textContent = e.nick; li.children[2].textContent = ko(e.score) + '점';
+        li.children[0].textContent = e.rank; li.children[2].textContent = ko(e.score) + '점';
+        decorateRow(li, e.nick, e.deco, !!e.mine);
         list.append(li);
       }
       if (!(r.top || []).length) $('board-me').textContent = '아직 아무도 없어요 · 오늘 1등 기회!';
@@ -1349,6 +1508,7 @@
     if (!$('share-panel').hidden) { closeShare(); return true; }
     if (mode === 'book') { closeBook(); return true; }
     if (mode === 'journey') { closeJourney(); return true; }
+    if (mode === 'intro') { introSkip(); return true; }
     if (mode === 'board') { closeBoard(); return true; }
     if (mode === 'hangar') { closeHangar(); return true; }
     if (mode === 'playing' || mode === 'capture') { pause(); return true; }
@@ -2882,6 +3042,7 @@
     if (nearClock > 0 && nearCombo > 0)
       labels.push({ s: 'NEAR! ×' + nearCombo, x: clamp(playerX, 65, width - 65), y: playerY - 55, font: '12px monospace', color: '#ffe5a0' });
     if (mode === 'hangar') { labels = []; renderHangar(t); }
+    if (mode === 'intro') { labels = []; renderIntro(t); }
     // 저해상도 화면을 도트가 보이게 확대한 뒤, 작은 글자만 선명하게 덧그립니다.
     view.setTransform(1, 0, 0, 1, 0, 0); view.imageSmoothingEnabled = false;
     view.clearRect(0, 0, canvas.width, canvas.height);
@@ -2928,6 +3089,13 @@
   $('over-more').onclick = () => { $('panel').classList.remove('quick'); $('over-more').hidden = true; };
   $('rank-line').onclick = () => openBoard();
   $('board-tab-free').onclick = () => openBoard('free');
+  $('board-nick').onclick = () => openIntro(true);
+  $('intro-next').onclick = introNext; $('intro-skip').onclick = introSkip;
+  { let sx = null; // 옆으로 밀어서 넘기기
+    $('intro').addEventListener('pointerdown', (e) => { sx = e.target.closest('input, button') ? null : e.clientX; });
+    $('intro').addEventListener('pointerup', (e) => { if (sx === null || introOnlyNick) return; const dx = e.clientX - sx; sx = null; if (dx < -50 && introStep < 3) showIntro(introStep + 1); else if (dx > 50 && introStep > 0) showIntro(introStep - 1); }); }
+  $('intro-dice').onclick = () => { $('intro-nick-input').value = randomNick(); tone(700, 0.05); };
+  $('intro-nick-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); closeIntro(true); } e.stopPropagation(); });
   $('board-tab-course').onclick = () => openBoard('course');
   $('nick-save').onclick = saveNick;
   $('nick-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveNick(); } e.stopPropagation(); });
@@ -2986,6 +3154,7 @@
       if (!$('share-panel').hidden) closeShare();
       else if (mode === 'book') closeBook();
       else if (mode === 'journey') closeJourney();
+      else if (mode === 'intro') introSkip();
       else if (mode === 'board') closeBoard();
       else if (mode === 'hangar') closeHangar();
       else if (['playing', 'capture', 'paused'].includes(mode)) pause();
