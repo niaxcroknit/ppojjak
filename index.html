@@ -896,7 +896,7 @@ h1.title-ko { letter-spacing: -1px; }
   let ufoX = 200, ufoY = 190, alienPhase, alienClock, dashX, dashY, dashVX, dashVY;
   let primaryStun, primarySpin, primaryNear; // primaryNear: { armed, cd }
   let visitors, visitorSpawn, nearCombo, nearClock;
-  let dents, impactLeft, impactSide, bolts, weaponLeft, weaponAt, weaponDrop, shotClock, bullets, weaponLv = 0;
+  let dents, impactLeft, impactSide, bolts, pebbles = [], pebbleClock = 0, pebbleNo = 0, dentHeal = 0, squishLeft = 0, squishText = null, weaponLeft, weaponAt, weaponDrop, shotClock, bullets, weaponLv = 0;
   let tut = null; // 연습 비행(튜토리얼) 진행 상태
   let sceneTime = 0, sceneX = 0, sceneY = 0, sceneReturn = 'playing', captureBy = null;
   let dressLost = 0, trophyLost = false, lastDress = [], lastTrophy = [], card = null;
@@ -941,7 +941,7 @@ h1.title-ko { letter-spacing: -1px; }
     dashX = dashY = dashVX = dashVY = 0;
     primaryStun = primarySpin = 0; primaryNear = { armed: false, cd: 0 };
     visitors = []; visitorSpawn = 25; nearCombo = nearClock = 0; // 추가 UFO: 25초, 50초
-    dents = []; impactLeft = 0; impactSide = 1; bolts = [];
+    dents = []; impactLeft = 0; impactSide = 1; bolts = []; pebbles = []; pebbleClock = 6; pebbleNo = 0; dentHeal = 0; squishLeft = 0; squishText = null;
     weaponLeft = 0; weaponAt = 20; weaponDrop = null; shotClock = 0; bullets = []; weaponLv = 0;
     resumeLeft = 0; tut = null;
     flipLeft = 0; flipSpin = 0; swirlOrb = null; swirlArmed = false; beatPlan = []; beatPlanFor = -1; beatState = 'calm'; beatIdx = -1; bestBroken = false; runBest = best;
@@ -2192,6 +2192,52 @@ h1.title-ko { letter-spacing: -1px; }
   // ═══════════════════════════════════════════════════════════════
   // 12. 충돌 흔적 · 별탄 무기
   // ═══════════════════════════════════════════════════════════════
+  // v0.17.1 부스러기 운석: 작고 빠르고 불규칙하게 떨어짐. 맞아도 안 죽고 기체가 찌그러질 뿐(웃음 포인트).
+  function updatePebbles(dt, py) {
+    if (!tut && elapsed > 5 && !boss) {
+      pebbleClock -= dt;
+      if (pebbleClock <= 0) {
+        pebbleNo++;
+        const k = 7000 + pebbleNo, many = beatState === 'release' ? 2 : 1;
+        pebbleClock = 1.6 + rnd(k, 1) * 2.6;
+        for (let i = 0; i < many; i++) {
+          const size = 6 + Math.round(rnd(k, 2 + i) * 4);
+          pebbles.push({ x: 20 + rnd(k, 4 + i) * (width - 40), y: flipOn() ? height + 10 : -14, r: size,
+            vy: rowSpeed() * (1.15 + rnd(k, 6 + i) * 0.45) * dirY(), vx: (rnd(k, 8 + i) - 0.5) * 70, spin: rnd(k, 10 + i) * 6.28 });
+        }
+      }
+    }
+    for (const p of pebbles) {
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      if (p.x < 8 || p.x > width - 8) p.vx = -p.vx;
+      const d = Math.hypot(playerX - p.x, py - p.y);
+      if (d < p.r + 15) {
+        burst(p.x, p.y, '#d8c7ec'); p.y = height * 3;
+        if (hyperOn()) { points += 2; continue; }
+        if (invincible > 0) continue;
+        dentShip(p.x); squishLeft = 0.55; dentHeal = 9; buzz(25);
+        squishText = { x: playerX, y: py - 40, t: 0.8, s: ['찌그럭!', '콩!', '아야!', '뿌직!'][pebbleNo % 4] };
+      }
+    }
+    pebbles = pebbles.filter((p) => p.y < height + 30 && p.y > -40);
+    if (dents.length && (dentHeal -= dt) <= 0) { dents.shift(); dentHeal = 6; } // 찌그러진 곳은 천천히 펴짐
+    squishLeft = Math.max(0, squishLeft - dt);
+    if (squishText && (squishText.t -= dt) <= 0) squishText = null;
+  }
+  function drawPebbles() {
+    const P = planet();
+    for (const p of pebbles) {
+      const x = S(p.x), y = S(p.y), up = Math.sign(p.vy) || 1;
+      ctx.strokeStyle = P.rockLite + '88'; ctx.lineWidth = 2; ctx.beginPath();
+      ctx.moveTo(x, y - up * (p.r + 2)); ctx.lineTo(x - p.vx * 0.06, y - up * (p.r + 14)); ctx.stroke();
+      ctx.save(); ctx.translate(x, y); ctx.rotate(Math.round((p.spin + elapsed * 3) / (Math.PI / 4)) * (Math.PI / 4));
+      ctx.fillStyle = P.rock; ctx.beginPath();
+      for (let j = 0; j < 6; j++) { const a = (j * Math.PI * 2) / 6, rr = p.r * (j % 2 ? 0.8 : 1); ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); }
+      ctx.closePath(); ctx.fill(); ellipse(-p.r * 0.3, -p.r * 0.2, p.r * 0.3, p.r * 0.25, P.rockDark);
+      ctx.restore();
+    }
+    if (squishText) labels.push({ s: squishText.s, x: S(squishText.x), y: S(squishText.y - (0.8 - squishText.t) * 30), font: "16px 'OnePop', sans-serif", color: '#ffc69a' });
+  }
   function dentShip(x) {
     impactSide = x < playerX ? -1 : 1; impactLeft = 0.38;
     dents.push(impactSide); if (dents.length > 3) dents.shift();
@@ -2789,7 +2835,7 @@ h1.title-ko { letter-spacing: -1px; }
     for (const k of ['start', 'weapon', 'aim', 'piece']) tips[k] = true; // 연습에서 배운 팁은 다시 안 띄움
     saveProgress();
     $('coach').hidden = true; $('mask').classList.remove('tut-pulse');
-    obstacles = obstacles.filter((o) => !o.tut); weaponDrop = null; weaponLeft = 0; weaponLv = 0; bullets = [];
+    obstacles = obstacles.filter((o) => !o.tut); pebbles = []; weaponDrop = null; weaponLeft = 0; weaponLv = 0; bullets = [];
     primaryHp = primaryMax = UFO_HP; primaryGone = skipped ? 0 : 3; primaryStun = 0; alienPhase = 'patrol'; alienClock = 0;
     masks = Math.max(masks, 1); masked = 0; invincible = 1.5;
     elapsed = 0; spawn = 0.9; itemClock = 2; points = score = 0;
@@ -2842,7 +2888,7 @@ h1.title-ko { letter-spacing: -1px; }
   }
   function clearRocks() {
     for (const o of obstacles) if (o.y > -20 && o.y < height + 20) burst(o.x + 17, o.y + 17, '#d8c7ec');
-    obstacles = [];
+    obstacles = []; pebbles = [];
   }
   // 전환 순간 UFO들도 반대편으로(기체와 길이 엇갈려 억울하게 잡히지 않게)
   function mirrorAliens() {
@@ -2918,13 +2964,29 @@ h1.title-ko { letter-spacing: -1px; }
     const gapX = forced ? clamp(forceGap - gap / 2, 22, Math.max(22, width - gap - 22)) : 22 + rnd(rowNumber, 1) * Math.max(1, width - gap - 44);
     forceGap = null;
     const speed = rowSpeed() * dirY(), y0 = flipOn() ? height + 6 : -40; // 역방향이면 아래에서 올라옴
-    for (let x = 18; x < width - 12; x += 38) {
-      if (x + 17 > gapX && x - 17 < gapX + gap) continue;
-      obstacles.push({ x: x - 17, y: y0, w: 34, h: 34, speed, spin: Math.random() * 6.28, vx: 0, close: false, grazed: false });
-    }
+    // v0.17.1 불규칙 운석: 줄 모양을 섞음(빈칸은 항상 그대로 보장).
+    //  벽 줄 = 군데군데 구멍 + 앞뒤로 들쭉날쭉 / 흩어진 줄 = 운석 2~4개만 띄엄띄엄
+    const slots = [];
+    for (let x = 18; x < width - 12; x += 38) if (!(x + 17 > gapX && x - 17 < gapX + gap)) slots.push(x);
+    const scatterChance = beatState === 'crunch' ? 0.12 : beatState === 'release' ? 0.6 : 0.34;
+    const scatter = !forced && !tut && rnd(rowNumber, 4) < scatterChance;
+    let keep;
+    if (scatter) {
+      const n = Math.min(slots.length, 2 + Math.floor(rnd(rowNumber, 5) * 3));
+      const order = slots.map((x, i) => [rnd(rowNumber, 20 + i), x]).sort((p, q) => p[0] - q[0]);
+      keep = new Set(order.slice(0, n).map((o) => o[1]));
+    } else keep = new Set(slots.filter((x, i) => forced || rnd(rowNumber, 20 + i) > 0.13));
+    const made = [];
+    slots.forEach((x, i) => {
+      if (!keep.has(x)) return;
+      const jx = forced ? 0 : Math.round((rnd(rowNumber, 40 + i) - 0.5) * (scatter ? 14 : 6));
+      const jy = forced ? 0 : Math.round(rnd(rowNumber, 60 + i) * (scatter ? 64 : 26));
+      const o = { x: x - 17 + jx, y: y0 - jy * dirY(), w: 34, h: 34, speed, spin: Math.random() * 6.28, vx: 0, close: false, grazed: false };
+      obstacles.push(o); made.push(o);
+    });
     const moverEvery = stage >= 3 ? 1 : stage >= 2 ? 2 : 3;
-    if (!forced && (rowNumber % moverEvery === moverEvery - 1 || moverEvery === 1)) {
-      const candidates = obstacles.filter((o) => o.y === y0);
+    if (!forced && (scatter || rowNumber % moverEvery === moverEvery - 1 || moverEvery === 1)) {
+      const candidates = made;
       const rock = candidates[Math.floor(rnd(rowNumber, 2) * candidates.length)];
       if (rock) rock.vx = (rock.x < width / 2 ? 1 : -1) * (34 + rnd(rowNumber, 3) * 22);
     }
@@ -3080,6 +3142,7 @@ h1.title-ko { letter-spacing: -1px; }
       if (o.close && !o.grazed && (o.speed >= 0 ? o.y + 17 > py + 30 : o.y + 17 < py - 30)) { o.grazed = true; graze(o.x + 17, o.y + 17); }
     }
     obstacles = obstacles.filter((o) => o.y < height + 40 && o.y > -80);
+    updatePebbles(dt * slow, py); if (mode !== 'playing') return;
 
     if (tick % 3 === 0) particles.push({ x: playerX + (Math.random() - 0.5) * 5, y: py + 32 * dirY(), life: 1, vy: 90 * dirY() });
     for (const p of particles) { p.y += (p.vy || 90) * dt; p.life -= dt * 2; }
@@ -3223,6 +3286,7 @@ h1.title-ko { letter-spacing: -1px; }
     ctx.save(); ctx.translate(x, y);
     if (!inHangar) { const fa = flipAngle(); if (fa) ctx.rotate(fa); } // 역방향: 반 바퀴
     if (!inHangar && impactLeft > 0) { const p = impactLeft / 0.38; ctx.scale(1 + 0.17 * p, 1 - 0.2 * p); ctx.rotate(-impactSide * 0.13 * p); }
+    if (!inHangar && squishLeft > 0) { const w = Math.sin(squishLeft * 34) * (squishLeft / 0.55); ctx.scale(1 + 0.12 * w, 1 - 0.12 * w); } // 찌그럭 출렁
     dressBack(t);
     const flameLen = ((tick >> 3) & 1 ? 4 : 0) + (hyperLeft > 0 && !inHangar ? 14 + ((tick >> 2) & 1) * 6 : 0); // 2프레임 불꽃 (하이퍼: 길게)
     const pc = PAINTS[shipPaint] || PAINTS.basic, fc = FLAMES[flameSkin()] || FLAMES.basic;
@@ -3418,6 +3482,7 @@ h1.title-ko { letter-spacing: -1px; }
     ctx.clearRect(0, 0, width, height);
     drawBackground(t);
     drawRocks();
+    drawPebbles();
     drawPickups();
     drawCombat();
     for (const p of particles) { ctx.globalAlpha = p.life * 0.5; star(S(p.x), S(p.y), 3 * p.life, '#ffdcab'); }

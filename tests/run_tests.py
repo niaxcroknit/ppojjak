@@ -53,6 +53,9 @@ window.__nd = {
   stock: (m, l, d) => { masks = m; lives = l; doubleLeft = d; },
   hy: () => ({ masks, lives, doubleLeft, hyperLeft, hyperCharged, doll, refunds: pickups.filter((p) => p.refund).map((p) => p.type), mode }),
   setHyper: (v) => { hyperLeft = v; },
+  pebbleHit: () => { obstacles = []; invincible = 0; lives = 0; hyperLeft = 0; pebbles = [{ x: playerX + 4, y: playerY - 30, r: 8, vy: 200, vx: 0, spin: 0 }]; for (let i = 0; i < 20; i++) { obstacles = []; update(STEP); tick++; } return { mode, dents: dents.length, squish: !!squishText }; },
+  pebbleCount: (sec) => { let seen = 0, made = 0; for (let i = 0; i < sec * 60; i++) { invincible = 999; const n = pebbleNo; update(STEP); tick++; if (pebbleNo > n) made++; } return made; },
+  rowShapes: (n) => { const out = []; for (let i = 0; i < n; i++) { obstacles = []; row(1); const ys = new Set(obstacles.map((o) => o.y)), xs = obstacles.map((o) => o.x).sort((a, b) => a - b); let maxGap = 0; for (let j = 1; j < xs.length; j++) maxGap = Math.max(maxGap, xs[j] - xs[j - 1] - 34); maxGap = Math.max(maxGap, xs[0], width - xs[xs.length - 1] - 34); out.push({ count: obstacles.length, rowsY: ys.size, maxGap }); } obstacles = []; return out; },
   kill: () => { invincible = 0; hyperLeft = 0; lives = 0; die('rock', playerX, playerY); for (let i = 0; i < 120 && mode !== 'over'; i++) { obstacles = []; update(STEP); tick++; } return mode; },
   setDoll: (v) => { doll = v; },
   setStars: (v) => { stars = v; }, getStars: () => stars,
@@ -672,6 +675,21 @@ async def main():
         await pg.click('#start'); await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*4,false)'); await pg.evaluate('__nd.ff(60*4,true)'); await pg.evaluate('__nd.cap()'); await pg.evaluate('__nd.ff(60*5,false)')
         check('일반 판 결과에는 "오늘의 코스로 순위 도전" 안내', '오늘의 코스' in await pg.text_content('#rank-line'))
         check('랭킹 에러 없음', not errs and not errs2, '; '.join((errs + errs2)[:3]))
+        await pg.context.close()
+
+        print('26. 불규칙 운석 · 부스러기 운석')
+        pg, errs = await page(b, {})
+        await pg.click('#start'); await pg.wait_for_timeout(300)
+        await pg.evaluate('__nd.setElapsed(20)')
+        shapes = await pg.evaluate('__nd.rowShapes(40)')
+        check('운석 줄이 들쭉날쭉(높이가 한 줄로 딱 맞지 않음)', sum(1 for r in shapes if r['rowsY'] > 1) >= 30, str(shapes[:3]))
+        check('운석 개수가 줄마다 다름', len({r['count'] for r in shapes}) >= 3, str([r['count'] for r in shapes]))
+        check('어느 줄이든 기체가 지나갈 빈칸은 항상 있음', all(r['maxGap'] >= 100 for r in shapes), str(min(r['maxGap'] for r in shapes)))
+        made = await pg.evaluate('__nd.pebbleCount(20)')
+        check('부스러기 운석이 가끔 떨어짐(20초에 4~14개)', 4 <= made <= 14, str(made))
+        hit = await pg.evaluate('__nd.pebbleHit()')
+        check('부스러기에 맞아도 안 죽고 기체가 찌그러짐', hit['mode'] == 'playing' and hit['dents'] >= 1 and hit['squish'], str(hit))
+        check('불규칙 운석 에러 없음', not errs, '; '.join(errs[:3]))
         await pg.context.close()
         await b.close()
 
