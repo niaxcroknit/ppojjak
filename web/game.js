@@ -247,7 +247,7 @@
   let bestBroken = false, overAt = 0, runBest = 0; // 재도전
   let hyperGauge = 0, hyperCharged = false, hyperLeft = 0, hyperEase = 0, hyperLost = [], spills = [], bgBoost = 0;
   let primaryHp = 10, primaryMax = 10, primaryGone = 0, primaryFlash = 0, escapes = [];
-  let planetIdx = 0, tripT = 0, boss = null, orbs = [], rescue = null, bossSupply = 0, trail = [];
+  let planetIdx = 0, tripT = 0, boss = null, orbs = [], rescue = null, bossSupply = 0, trail = [], saga = null; // saga = 친구 보스 뒤 깨어남 · 외계인 왕 장면
   let loot = [], runStars = 0, coins = [], confetti = [], booms = [], celebrate = 0, flashT = 0;
   let course = false, courseSeed = 0, bagNo = 0; // 오늘의 코스(모두 같은 운석 배치)
   // 게임 진행에 영향을 주는 난수. 오늘의 코스에서는 (날짜, 줄 번호, 용도)로만 정해져서
@@ -269,7 +269,7 @@
     runDress = {}; runTrophy = {}; runFriends = {}; lastDress = []; lastTrophy = []; card = null; celebrate = 0; flashT = 0;
     hyperGauge = 0; hyperCharged = false; hyperLeft = 0; hyperEase = 0; hyperLost = []; spills = [];
     primaryHp = primaryMax = UFO_HP; primaryGone = 0; primaryFlash = 0; escapes = [];
-    planetIdx = 0; tripT = 0; boss = null; orbs = []; rescue = null; bossSupply = 0; trail = [];
+    planetIdx = 0; tripT = 0; boss = null; orbs = []; rescue = null; bossSupply = 0; trail = []; saga = null;
     elapsed = score = points = spawn = rowNumber = stage = 0;
     obstacles = []; particles = []; sparkles = [];
     pickups = []; itemClock = itemIndex = 0; itemBag = []; lastItem = ''; bagNo = 0;
@@ -731,13 +731,13 @@
     setText('best', pad(best));
     setText('time', String(Math.floor(elapsed / 60)).padStart(2, '0') + ':' + String(Math.floor(elapsed % 60)).padStart(2, '0'));
     const P = planet();
-    setText('level', boss ? '⚠ 모선 ' + P.boss.short + ' 격퇴!' : rescue ? '♥ 친구를 받아요!' : '모선까지 ' + Math.max(0, Math.ceil(P.len - tripT)) + '초');
-    const trip = boss || rescue ? 100 : Math.min(100, Math.round((tripT / P.len) * 100));
+    setText('level', boss ? (boss.kind === 'friends' ? '⚠ 친구들을 깨워라!' : '⚠ 모선 ' + P.boss.short + ' 격퇴!') : saga ? '♥ ' + galaxy().name : rescue ? '♥ 친구를 받아요!' : '모선까지 ' + Math.max(0, Math.ceil(P.len - tripT)) + '초');
+    const trip = boss || rescue || saga ? 100 : Math.min(100, Math.round((tripT / P.len) * 100));
     if (uiCache.trip !== trip) { uiCache.trip = trip; $('trip-fill').style.width = trip + '%'; }
     setHTML('trip-goal', '{' + P.friend + '}');
     setFlag('boss-bar', 'hidden', !boss || mode !== 'playing');
     if (boss) {
-      setText('boss-name', P.boss.name + (boss.L ? ' ' + 'Ⅱ Ⅲ Ⅳ Ⅴ'.split(' ')[Math.min(3, boss.L - 1)] : ''));
+      setText('boss-name', boss.P.boss.name + (boss.L ? ' ' + 'Ⅱ Ⅲ Ⅳ Ⅴ'.split(' ')[Math.min(3, boss.L - 1)] : ''));
       const bp = Math.max(0, Math.round((boss.hp / boss.max) * 100));
       if (uiCache.bp !== bp) { uiCache.bp = bp; $('boss-fill').style.width = bp + '%'; }
       setText('boss-time', Math.max(0, Math.ceil(BOSS_TIME - boss.t)) + 's');
@@ -1382,7 +1382,7 @@
     show(reason || '운석과 부딪혔어요. 한 번 더?', '다시 도전');
     $('panel').classList.add('over');
     $('result').hidden = false;
-    $('result').textContent = '⏱ ' + fmtTime(Math.floor(elapsed)) + ' · ' + score.toLocaleString('ko-KR') + '점' + (isNew ? ' · NEW BEST' : '');
+    $('result').textContent = '⏱ ' + fmtTime(Math.floor(elapsed)) + ' · ' + score.toLocaleString('ko-KR') + '점' + (lap() > 0 ? ' · ' + (lap() + 1) + '번째 은하' : '') + (isNew ? ' · NEW BEST' : '');
     // 이번 판 기록 — 핵심 3줄만 보이고 나머지는 '기록 더 보기'에 접어 둠(눈 피로 줄이기)
     const r = runStats;
     if (coins.length) { giveStars(coins.length); coins = []; } // 날아오던 별조각은 챙겨 드려요
@@ -2150,6 +2150,14 @@
   // ═══════════════════════════════════════════════════════════════
   const planet = () => PLANETS[planetIdx % PLANETS.length];
   const lap = () => Math.floor(planetIdx / PLANETS.length);
+  // v0.18 은하: 행성 3개 + 세뇌된 친구들 = 은하 하나. 외계인 왕이 친구들을 다시 데려가서 다음 은하로(끝없이)
+  const GALAXIES = [
+    { name: '네온 은하', tint: null }, { name: '솜사탕 은하', tint: '#ff9cc4' }, { name: '민트 초코 은하', tint: '#5ff5d0' },
+    { name: '복숭아 은하', tint: '#ffb07a' }, { name: '오로라 은하', tint: '#9fd4ff' }, { name: '포도 젤리 은하', tint: '#c77dff' },
+  ];
+  const galaxy = () => { const L = lap(); return L < GALAXIES.length ? GALAXIES[L] : { name: GALAXIES[1 + ((L - 1) % (GALAXIES.length - 1))].name + ' ' + (L + 1), tint: GALAXIES[1 + ((L - 1) % (GALAXIES.length - 1))].tint }; };
+  const FRIEND_BOSS = { name: '세뇌된 친구들', boss: { short: '배신자 3인조', subj: '친구들이', obj: '친구들을', name: '배신자 3인조 (세뇌됨)', hp: 90, color: '#c9b5f4', attack: 'friends' }, friend: 'f_bunny' };
+  const FRIEND_LINES = [['f_bunny', '당근이나 먹어라!!', '#ffc69a'], ['f_chick', '삐약(진심)', '#fff1aa'], ['f_cat', '냥. 꺼져.', '#d8bcff']];
   const friendCount = () => FRIEND_KEYS.filter((k) => runFriends[k]).length; // 이번 판에 함께 다니는 친구
   const everFriends = () => FRIEND_KEYS.filter((k) => friends[k]).length; // 구출 기록
   function ufoBoom(x, y, color) {
@@ -2198,7 +2206,7 @@
     const P = planet();
     if (inRun) return P.boss.subj + ' 기다려요 · ' + Math.round(P.len) + '초 버티면 등장';
     const g = goalTarget();
-    if (!g) return '이번 판에 친구를 모두 구했어요! 2회차 모선에 도전해요';
+    if (!g) return '이번 판에 친구를 모두 구했어요! 다음 은하까지 가 봐요';
     const via = g.i === 1 ? PLANETS[0].name + '을 지나 ' : g.i >= 2 ? '행성 ' + g.i + '개를 지나 ' : '';
     return via + g.P.name + '의 모선 ' + g.P.boss.obj + ' 격퇴하고 {' + g.P.friend + '} ' + FRIENDS[g.P.friend].name + ' 구하기';
   }
@@ -2227,6 +2235,7 @@
     if (boss.hp <= 0) defeatBoss();
   }
   function defeatBoss() {
+    if (boss && boss.kind === 'friends') { wakeFriends(); return; }
     const b = boss, key = 'boss' + (planetIdx % PLANETS.length), bonus = PTS.boss * (1 + b.L);
     for (let i = 0; i < 4; i++) ufoBoom(b.x + (i - 1.5) * 40, b.y + (i % 2) * 10, b.P.boss.color);
     podEscape(b.x, b.y - 20, b.P.boss.color);
@@ -2241,16 +2250,87 @@
   }
   function bossFlee() {
     const b = boss;
+    if (b.kind === 'friends') { // 세뇌된 친구들은 도망 대신 외계인 왕이 회수
+      boss = null; orbs = []; saga = { phase: 'king', t: 0, x: width + 60, y: HUD_BAND + 96, woke: false };
+      toast('시간 초과… 외계인 왕이 친구들을 회수하러 왔다', 2.4); return;
+    }
     boss = null; orbs = [];
     toast('모선이 도망쳤다… ' + FRIENDS[b.P.friend].name.split(' ')[1] + ', 다음엔 꼭!', 3.4);
     nextPlanet();
   }
-  function nextPlanet() {
+  function nextPlanet(quiet) {
     planetIdx++; tripT = 0; primaryGone = Math.max(primaryGone, 2);
     reached = Math.max(reached, planetIdx); giveStars(STAR_PLANET); saveProgress();
     const P = planet(), L = lap();
-    setTimeout(() => { if (mode === 'playing') splash('🪐 ' + P.name, (L ? (L + 1) + '회차 · ' : '') + '다음 타깃 ▸ ' + P.boss.short + ' · ' + P.len + '초 · ★+' + STAR_PLANET, 'planet', 2.2); }, 2300);
+    setTimeout(() => { if (mode === 'playing' && !saga) splash('🪐 ' + P.name, (L ? galaxy().name + ' · ' : '') + '다음 타깃 ▸ ' + P.boss.short + ' · ' + P.len + '초 · ★+' + STAR_PLANET, 'planet', 2.2); }, quiet ? 3400 : 2300);
   }
+  // ── v0.18 세뇌된 친구들(은하 마지막 보스) ──
+  function spawnFriendBoss() {
+    const L = lap(), hp = Math.round(FRIEND_BOSS.boss.hp * (1 + 0.5 * L));
+    saga = null;
+    for (const k of FRIEND_KEYS) runFriends[k] = false; // 따라오던 친구들이 접시로 쓱…
+    boss = { x: width / 2, y: -90, ty: HUD_BAND + 66, hp, max: hp, t: 0, enter: 1.8, atk: 2.4, flip: 0, claw: null, flash: 0, P: FRIEND_BOSS, L, ramCd: 0, dizzy: 0, cracks: 0, kind: 'friends', say: 0 };
+    orbs = []; bossSupply = 8; primaryGone = Math.max(primaryGone, 2);
+    if (!weaponDrop && weaponLeft <= 0) weaponPending = true;
+    splash('야!! 너네 왜 거기 있어?!', '헬멧 깨부숴! 정신 차리게 해!', 'boss', 2.4);
+    tone(120, 0.4); setTimeout(() => tone(90, 0.3), 160); buzz(90);
+  }
+  function fireFriends(b) {
+    const pick = b.flip++ % 3, sp = pace();
+    if (pick === 0) { // 토토: 당근 3개 연속 조준
+      const a = Math.atan2(playerY - b.y, playerX - (b.x - 26)), vx = Math.cos(a) * 230 * sp, vy = Math.sin(a) * 230 * sp;
+      for (let i = 0; i < 3; i++) orbs.push({ x: b.x - 26 - vx * 0.18 * i, y: b.y + 10 - vy * 0.18 * i, vx, vy, k: 'carrot' }); // 줄줄이 3개
+      tone(520, 0.04);
+    } else if (pick === 1) { // 삐약이: 깃털 부채꼴(느림)
+      const a0 = Math.atan2(playerY - b.y, playerX - b.x), n = 5 + Math.min(2, b.L);
+      for (let i = 0; i < n; i++) { const a = a0 + (i - (n - 1) / 2) * 0.26; orbs.push({ x: b.x, y: b.y + 14, vx: Math.cos(a) * 120 * sp, vy: Math.sin(a) * 120 * sp, k: 'feather' }); }
+      tone(980, 0.05);
+    } else { // 냥냥: 털실 2개가 벽에 튕기며 굴러옴
+      for (const s of [-1, 1]) orbs.push({ x: b.x + 26, y: b.y + 12, vx: s * 150 * sp, vy: 110 * sp, k: 'yarn' });
+      tone(300, 0.08);
+    }
+    b.say = 1.6; b.sayK = pick;
+  }
+  function wakeFriends() {
+    const b = boss, L = b.L, stars2 = STAR_BOSS * 2, bonus = PTS.boss * 2 * (1 + L);
+    for (let i = 0; i < 5; i++) burst(b.x + (i - 2) * 26, b.y - 10, ['#c9f4f2', '#ff9cc4', '#fff1aa'][i % 3]);
+    ramFx(b.x, b.y, true);
+    points += bonus; runStats.bosses++; addGauge(GAUGE_BOSS); spawnCoins(b.x, b.y, stars2);
+    arrested.friends = true; saveProgress();
+    boss = null; orbs = [];
+    saga = { phase: 'wake', t: 0, x: b.x, y: b.y - 10, woke: true };
+    splash('어…? 우리 뭐 했어?', '기억 삭제됨 · 당근 던진 건 비밀 · ★+' + stars2, 'win', 2.4);
+    tone(1046, 0.2); setTimeout(() => tone(1318, 0.25), 120); buzz(60);
+  }
+  // 깨어남 → 외계인 왕 등장 → 친구들 다시 납치 → 다음 은하
+  function updateSaga(dt) {
+    const g = saga;
+    g.t += dt; invincible = Math.max(invincible, 0.5); primaryGone = Math.max(primaryGone, 2);
+    if (g.phase === 'wait') { if (g.t > 2.6) spawnFriendBoss(); return; } // 친구 보스 나오기 직전
+    if (g.phase === 'wake') {
+      if (g.t > 2.8) { g.phase = 'king'; g.t = 0; g.x = width + 60; g.y = HUD_BAND + 96; tone(160, 0.3); }
+      return;
+    }
+    if (g.phase === 'king') {
+      const tx = width * 0.62;
+      g.x += (tx - g.x) * (1 - Math.exp(-3 * dt));
+      if (g.t > 1.6 && !g.grabbed) { g.grabbed = true; for (const k of FRIEND_KEYS) runFriends[k] = false; g.pull = 0; tone(620, 0.2); }
+      if (g.grabbed) g.pull = Math.min(1, (g.pull || 0) + dt * 0.8);
+      if (g.t > 3.6) { g.phase = 'leave'; g.t = 0; }
+      return;
+    }
+    if (g.phase === 'leave') {
+      g.x += 420 * dt; g.y -= 120 * dt;
+      if (g.t > 1.1) {
+        saga = null;
+        nextPlanet(true);
+        const G = galaxy();
+        splash(G.name, 'GALAXY ' + (lap() + 1) + ' · 저 왕관 쓴 놈 잡으러 간다', 'planet', 2.8);
+        galaxyBest = Math.max(galaxyBest, lap() + 1);
+      }
+    }
+  }
+  let galaxyBest = 1;
   function fireOrbs(b) {
     const a0 = Math.atan2(playerY - b.y, playerX - b.x), n = 3 + Math.min(2, b.L);
     for (let i = 0; i < n; i++) {
@@ -2275,13 +2355,15 @@
           splash('{' + k + '} ' + f.name.split(' ')[1] + ' 구출!!', f.name + ' 합류 · 이번 판 친구 ' + friendCount() + '/' + FRIEND_KEYS.length + ' · ★+' + (firstEver ? STAR_RESCUE : STAR_RESCUE_AGAIN), 'win', 2.2); burst(playerX, playerY, '#ffb6d3'); tone(1046, 0.25); buzz(60);
           if (!tips.cute) setTimeout(() => tip('cute', '친구가 늘면 더 귀여워져서… UFO가 더 노려요'), 3800);
         }
-        nextPlanet();
+        if (planetIdx % PLANETS.length === PLANETS.length - 1) { tripT = 0; saga = { phase: 'wait', t: 0 }; } // 잠깐 뒤 세뇌된 친구들
+        else nextPlanet();
       }
       return;
     }
+    if (saga) { updateSaga(dt); return; }
     if (!boss) { tripT += dt * worldMul(); if (tripT >= planet().len) spawnBoss(); return; }
     const b = boss;
-    b.t += dt; b.flash = Math.max(0, b.flash - dt);
+    b.t += dt; b.flash = Math.max(0, b.flash - dt); if (b.say) b.say = Math.max(0, b.say - dt);
     b.y += (b.ty - b.y) * (1 - Math.exp(-3 * dt));
     if (b.enter > 0) { b.enter -= dt; return; }
     b.ramCd = Math.max(0, b.ramCd - dt); b.dizzy = Math.max(0, b.dizzy - dt);
@@ -2290,20 +2372,23 @@
     if (hyperOn() && b.ramCd <= 0 && Math.abs(playerX - b.x) < 84 && Math.abs(playerY - b.y) < 46) {
       b.ramCd = RAM_COOLDOWN; b.dizzy = 0.9; b.y -= 26; b.cracks = Math.min(3, b.cracks + 1);
       ramFx((playerX + b.x) / 2, (playerY + b.y) / 2 + 10, true);
-      toast(b.cracks >= 3 ? '창살이 흔들린다! 조금만 더!' : '쾅!! 모선 −' + RAM_BOSS, 1.4);
+      toast(b.kind === 'friends' ? '강제 포옹!! −' + RAM_BOSS : b.cracks >= 3 ? '창살이 흔들린다! 조금만 더!' : '쾅!! 모선 −' + RAM_BOSS, 1.4);
       damageBoss(RAM_BOSS);
       if (!boss) return;
     }
-    b.x = width / 2 + Math.sin(b.t * 0.7) * Math.max(10, width / 2 - 82);
+    b.x = width / 2 + Math.sin(b.t * 0.7) * Math.max(10, width / 2 - (b.kind === 'friends' ? 112 : 82));
     if (b.t > BOSS_TIME) { bossFlee(); return; }
     bossSupply -= dt;
     if (bossSupply <= 0) { bossSupply = 11; if (!weaponDrop && weaponLeft <= 0 && !weaponPending) weaponPending = true; }
     b.atk -= dt;
     if (b.atk <= 0 && !b.claw) {
       const kind = b.P.boss.attack === 'both' ? (b.flip++ % 2 ? 'orbs' : 'claw') : b.P.boss.attack;
+      if (kind === 'friends') { fireFriends(b); b.atk = 2.3 / (1 + 0.2 * b.L); }
+      else {
       if (kind === 'claw') b.claw = { x: playerX, phase: 'aim', t: 0, y: b.y + 24 };
       else fireOrbs(b);
       b.atk = (kind === 'claw' ? 3.4 : 2.6) / (1 + 0.25 * b.L);
+      }
     }
     if (b.claw) {
       const c = b.claw;
@@ -2323,12 +2408,14 @@
     }
     for (const o of orbs) {
       o.x += o.vx * dt; o.y += o.vy * dt;
+      if (o.k === 'yarn' && (o.x < 12 || o.x > width - 12)) { o.vx = -o.vx; o.x = clamp(o.x, 12, width - 12); } // 털실은 벽에 튕김
+      if (o.k === 'feather') o.vx += Math.sin(b.t * 6 + o.y * 0.05) * 30 * dt; // 깃털은 살랑
       if (Math.hypot(playerX - o.x, playerY - o.y) < 18) {
         if (hyperOn()) { o.dead = true; burst(o.x, o.y, '#fff1a5'); points += PTS.orb; }
         else if (invincible <= 0) {
           o.dead = true;
           if (lives > 0) { lives--; invincible = 2.2; dentShip(o.x); toast('{rabbit} 토끼 귀가 막아 줬다!'); tone(320); buzz(60); }
-          else { die('모선의 반짝이 탄에 맞았어요. 한 번 더?', o.x, o.y, '모선 탄'); return; }
+          else { die(o.k ? { carrot: '토토가 던진 당근에 맞았어요… 배신이야', feather: '삐약이 깃털에 간지럼 KO', yarn: '냥냥 털실에 걸려 넘어졌어요' }[o.k] : '모선의 반짝이 탄에 맞았어요. 한 번 더?', o.x, o.y, o.k ? '세뇌된 친구' : '모선 탄'); return; }
         }
       }
     }
@@ -2344,8 +2431,10 @@
     });
   }
   function drawBoss() {
+    drawSaga();
     const b = boss;
     if (!b) return;
+    if (b.kind === 'friends') { drawFriendBoss(b); return; }
     const x = S(b.x), y = S(b.y), col = b.P.boss.color;
     if (b.claw) {
       const c = b.claw, cx = S(c.x);
@@ -2387,6 +2476,76 @@
     if (b.flash > 0) { ctx.globalAlpha = 0.6; ellipse(0, 10, 86, 20, '#ffffff'); ctx.globalAlpha = 1; }
     ctx.restore();
     for (const o of orbs) { ellipse(S(o.x), S(o.y), 9, 9, '#fff1a544'); star(S(o.x), S(o.y), 8, '#fff1a5'); }
+  }
+  // 세뇌 표시: 머리 위 작은 외계인 안테나 + 빨간 빙글 눈
+  function brainwashed(x, y, k) {
+    ctx.fillStyle = '#9d8fc7'; ctx.fillRect(x - 1, y - 16, 2, 6); ellipse(x, y - 17, 3, 3, (tick >> 3) % 2 ? '#ff6f9a' : '#ffd0e0');
+    ctx.strokeStyle = '#ff3b5c'; ctx.lineWidth = 1.5;
+    const ey = y + (k === 'f_bunny' ? 2.5 : 1.5);
+    for (const ex of [-3.3, 3.3]) { ctx.beginPath(); ctx.arc(x + ex, ey, 2, tick / 6, tick / 6 + 4.8); ctx.stroke(); }
+  }
+  function drawFriendBoss(b) {
+    const x = S(b.x), y = S(b.y), seat = [['f_chick', -26], ['f_bunny', 0], ['f_cat', 26]];
+    ctx.save(); ctx.translate(x, y);
+    ellipse(0, -14, 60, 34, '#9ddbd9'); ellipse(0, -16, 46, 22, '#e2f6ff');
+    for (const [k, fx] of seat) { ctx.save(); ctx.translate(fx, -16 + (b.dizzy > 0 ? Math.sin(tick / 2 + fx) * 2 : 0)); ctx.scale(1.1, 1.1); drawIcon(ctx, k); ctx.restore(); }
+    ctx.restore();
+    for (const [k, fx] of seat) brainwashed(x + fx, y - 17, k);
+    ctx.save(); ctx.translate(x, y);
+    const crack = Math.max(b.cracks, b.hp / b.max < 0.34 ? 3 : b.hp / b.max < 0.67 ? 1 : 0);
+    if (crack) {
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.beginPath();
+      const cr = [[[-34, -40], [-26, -30], [-32, -22], [-22, -14]], [[34, -38], [26, -28], [32, -18]], [[-4, -48], [2, -38], [-4, -30]]];
+      for (let i = 0; i < Math.min(3, crack); i++) cr[i].forEach(([cx2, cy2], j) => (j ? ctx.lineTo(cx2, cy2) : ctx.moveTo(cx2, cy2)));
+      ctx.stroke();
+    }
+    ellipse(-48, -12, 9, 8, '#d0efaa'); ellipse(48, -12, 9, 8, '#d0efaa');
+    ellipse(-50, -13, 1.5, 2, '#33314d'); ellipse(-45, -13, 1.5, 2, '#33314d'); ellipse(45, -13, 1.5, 2, '#33314d'); ellipse(50, -13, 1.5, 2, '#33314d');
+    ellipse(0, 10, 100, 20, b.P.boss.color); ellipse(0, 5, 88, 11, '#ded0f9');
+    for (let i = -4; i <= 4; i++) ellipse(i * 21, 16, 3, 2, ((tick >> 4) + i + 9) % 3 === 0 ? '#ffffff' : '#ffe7a9');
+    if (b.flash > 0) { ctx.globalAlpha = 0.6; ellipse(0, 10, 100, 20, '#ffffff'); ctx.globalAlpha = 1; }
+    ctx.restore();
+    if (b.say > 0 && b.enter <= 0) { const [, s2, c] = FRIEND_LINES[b.sayK] || FRIEND_LINES[0]; const fx = [0, -26, 26][b.sayK] || 0; labels.push({ s: s2, x: clamp(b.x + fx * 2.4, 80, width - 80), y: b.y - 58, font: "15px 'OnePop', sans-serif", color: c }); }
+    if (b.dizzy > 0) labels.push({ s: '쩌저적!!', x: b.x + 40, y: b.y - 70, font: "15px 'OnePop', sans-serif", color: '#ffffff' });
+    for (const o of orbs) {
+      const ox = S(o.x), oy = S(o.y);
+      if (o.k === 'carrot') { ellipse(ox, oy, 9, 9, '#ffb07a44'); ctx.save(); ctx.translate(ox, oy); ctx.rotate(Math.atan2(o.vy, o.vx) - Math.PI / 2); ctx.fillStyle = '#ff9a4a'; ctx.beginPath(); ctx.moveTo(-4, -6); ctx.lineTo(4, -6); ctx.lineTo(0, 8); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#5fcf7a'; ctx.fillRect(-3, -10, 2, 4); ctx.fillRect(1, -10, 2, 4); ctx.restore(); }
+      else if (o.k === 'feather') { ellipse(ox, oy, 9, 9, '#fff6c844'); ellipse(ox, oy, 3, 7, '#fff6c8'); ctx.fillStyle = '#f3c665'; ctx.fillRect(ox - 1, oy - 6, 2, 12); }
+      else if (o.k === 'yarn') { ellipse(ox, oy, 9, 9, '#c9b5f444'); ellipse(ox, oy, 7, 7, '#c9b5f4'); ctx.strokeStyle = '#efe6ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(ox, oy, 4, tick / 5, tick / 5 + 2.2); ctx.stroke(); }
+      else { ellipse(ox, oy, 9, 9, '#fff1a544'); star(ox, oy, 8, '#fff1a5'); }
+    }
+  }
+  // 외계인 왕(평소 UFO 외계인 + 작은 왕관 · 망토) · 깨어난 친구들
+  function drawSaga() {
+    const g = saga;
+    if (!g || g.phase === 'wait') return;
+    if (g.phase === 'wake') {
+      const fr = [['f_bunny', -70, 0], ['f_cat', 0, -40], ['f_chick', 70, 0]], k2 = Math.min(1, g.t / 1.2);
+      for (const [k, dx, dy] of fr) {
+        const fx = S(g.x + (playerX + dx - g.x) * k2), fy = S(g.y + (playerY - 150 + dy - g.y) * k2);
+        ctx.strokeStyle = '#ffb6d3'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(fx, fy, 18, 0, Math.PI * 2); ctx.stroke();
+        ellipse(fx, fy, 17, 17, '#ffb6d322'); ctx.save(); ctx.translate(fx, fy); drawIcon(ctx, k); ctx.restore();
+      }
+      if (g.t > 0.9) { labels.push({ s: '머리 아파…', x: playerX - 70, y: playerY - 180, font: "15px 'OnePop', sans-serif", color: '#ffd0e0' }); labels.push({ s: '…고맙다냥(작게)', x: playerX, y: playerY - 222, font: "15px 'OnePop', sans-serif", color: '#d8bcff' }); }
+      return;
+    }
+    const kx = S(g.x), ky = S(g.y);
+    if (g.phase === 'king' && g.t > 1.2) { // 빔
+      ctx.fillStyle = '#e6d1ff20'; ctx.beginPath(); ctx.moveTo(kx - 17, ky + 10); ctx.lineTo(kx + 17, ky + 10); ctx.lineTo(kx + 60, S(playerY) - 30); ctx.lineTo(kx - 60, S(playerY) - 30); ctx.closePath(); ctx.fill();
+    }
+    if (g.grabbed) { // 끌려 올라가는 친구들(다시 빨간 눈)
+      const p = g.pull || 0;
+      [['f_cat', -6], ['f_chick', 8], ['f_bunny', -4]].forEach(([k, dx], i) => {
+        const fy = S(playerY - 140 - i * 20 + (ky + 50 + i * 30 - (playerY - 140 - i * 20)) * p), fx = S(kx + dx);
+        ctx.save(); ctx.translate(fx, fy); drawIcon(ctx, k); ctx.restore(); brainwashed(fx, fy - 1, k);
+      });
+    }
+    ctx.fillStyle = '#7a1f4a'; ctx.beginPath(); ctx.moveTo(kx - 14, ky + 2); ctx.lineTo(kx + 14, ky + 2); ctx.lineTo(kx + 22, ky + 22); ctx.lineTo(kx - 22, ky + 22); ctx.closePath(); ctx.fill();
+    ctx.save(); ctx.translate(kx, ky); ctx.scale(1.15, 1.15); ufo(0, 0, tick, false, { color: '#c9b5f4', stun: 0, spin: 0, grace: 0, scene: true }); ctx.restore();
+    ctx.fillStyle = '#ffd76a'; ctx.beginPath(); ctx.moveTo(kx - 10, ky - 30); ctx.lineTo(kx - 10, ky - 38); ctx.lineTo(kx - 5, ky - 34); ctx.lineTo(kx, ky - 41); ctx.lineTo(kx + 5, ky - 34); ctx.lineTo(kx + 10, ky - 38); ctx.lineTo(kx + 10, ky - 30); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#ff6f9a'; ctx.fillRect(kx - 1, ky - 36, 2, 2);
+    if (g.phase === 'leave') for (let i = 0; i < 5; i++) { ctx.fillStyle = '#ffffff55'; ctx.fillRect(kx - 70 - i * 6, ky + 20 - i * 10, 24, 2); }
+    if (g.phase === 'king') labels.push({ s: g.t < 1.8 ? '귀여운 건 다 압수다~ 메롱' : '얘네 다시 데려간다? 수고~', x: clamp(g.x - 40, 110, width - 110), y: g.y - 54, font: "15px 'OnePop', sans-serif", color: g.t < 1.8 ? '#fff1aa' : '#ffd0e0' });
   }
   function drawEscapes() {
     for (const e of escapes) {
@@ -2653,7 +2812,7 @@
   // 운석 줄 낙하 속도(시간에 따라 상승 · 화면 크기 보정)
   function rowSpeed() {
     const late = Math.max(0, elapsed - 70);
-    return (165 + Math.min(elapsed * 3, 165) + Math.min(late * 0.8, 100)) * pace(); // v0.17.1: 시작을 빠르게, 55초쯤 기존 최고 속도에 도달
+    return (165 + Math.min(elapsed * 3, 165) + Math.min(late * 0.8, 100)) * pace() * (1 + 0.04 * Math.min(5, lap())); // 은하마다 조금씩 빨라짐 // v0.17.1: 시작을 빠르게, 55초쯤 기존 최고 속도에 도달
   }
   function row(interval) {
     rowNumber++;
@@ -2800,7 +2959,7 @@
     // 하이퍼 중에는 줄도 그만큼 빨리 옴(간격 유지). 모선전에는 운석 줄을 30% 줄여 보스에 집중.
     const slowSpawn = (slowLeft > 0 ? 0.55 : 1) * wm * (boss ? 0.7 : 1);
     if (!tut) spawn -= dt * slowSpawn;
-    if (spawn <= 0) { const interval = Math.max(elapsed < 100 ? 0.85 : 0.72, 1.3 - elapsed * 0.007) * (beatState === 'crunch' ? CRUNCH_ROW : beatState === 'release' ? RELEASE_ROW : 1); row(interval); spawn = interval; }
+    if (spawn <= 0 && !saga) { const interval = Math.max(elapsed < 100 ? 0.85 : 0.72, 1.3 - elapsed * 0.007) * (beatState === 'crunch' ? CRUNCH_ROW : beatState === 'release' ? RELEASE_ROW : 1); row(interval); spawn = interval; }
     if (midDrop) { midDrop.at -= dt * slowSpawn; if (midDrop.at <= 0) spawnMidDrop(); }
     const py = playerY, slow = (slowLeft > 0 ? 0.55 : 1) * wm;
 
@@ -3066,8 +3225,9 @@
     ctx.restore();
   }
   function drawBackground(t) {
-    const P = planet();
+    const P = planet(), G = galaxy();
     ctx.fillStyle = P.bg; ctx.fillRect(0, 0, width, height);
+    if (G.tint) { ctx.globalAlpha = 0.13; ctx.fillStyle = G.tint; ctx.fillRect(0, 0, width, height); ctx.globalAlpha = 1; } // 은하마다 하늘색이 다름
     // 배경 별: 도트 1칸짜리, 반짝임도 두 단계로만
     for (let i = 0; i < 55; i++) {
       const tt = t + bgBoost * (1 + (i % 3)) - revScroll;

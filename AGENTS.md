@@ -7,7 +7,7 @@
 
 - **게임 이름**: 뽀짝 우주 대탈출 - 귀여우면 잡혀가는 슈팅 게임 (구 이름 "네온 드리프트"는 같은 이름 게임이 있어서 바꿈)
 - **장르**: 세로형 한 손 레트로 도트 피하기 슈팅. 설정 = "외계인은 귀여운 것부터 잡아간다"
-- **현재 버전**: v0.17 · Android `versionCode 18` / `versionName 0.17.0`
+- **현재 버전**: v0.18 · Android `versionCode 19` / `versionName 0.18.0` (18은 콘솔에 올렸다고 보고 올림)
 - **저장소**: https://github.com/niaxcroknit/ppojjak (main 브랜치)
 - **웹 버전**: https://niaxcroknit.github.io/ppojjak/ (GitHub Pages, 저장소 맨 위 `index.html` = 게임 첫 화면)
 - **개인정보처리방침(공개 주소)**: https://app.notion.com/p/4024235ad3ee80668ecfcca2cbbf8526
@@ -17,7 +17,7 @@
 
 1. **앱 ID `com.ppojjak.spaceescape`** — Play Console에 이 ID로 앱이 이미 만들어져 있음. `com.nia.*`로 바꾸자는 얘기가 한 번 나왔다가 취소됨. 다시 바꾸자고 하지 말 것.
 2. **서명 키(.jks)** — 사용자 PC에만 있음. 저장소에 올리지 않음(`.gitignore`에 `*.jks`). 업데이트는 같은 키로만.
-3. **versionCode** — 업로드할 때마다 1씩 올리기. 현재 18. 콘솔에 아직 아무것도 안 올렸다면 18 그대로 써도 됨.
+3. **versionCode** — 업로드할 때마다 1씩 올리기. 현재 19(18은 v0.17로 업로드됨).
 4. **레트로 이동감** — 키보드 틱당 정확히 4px, 드래그 목표 추종 틱당 최대 8px, 60Hz 고정 틱, 저해상도 캔버스 2배 확대, 관성·스무딩 없음. `game.js` 1번 섹션 상수·`stepPlayer()` 건드리지 말 것.
 5. **0 크기 캔버스 보호(`surfaceReady`)**, `DPR` 최대 2, `sync()`의 DOM 캐시.
 6. **오늘의 코스 결정성** — 진행에 영향 주는 난수는 `rnd(줄번호, 용도)`만. `Math.random()` 쓰면 코스가 사람마다 달라짐.
@@ -35,10 +35,10 @@ tools/build_single.py   web/ → index.html (+icons, manifest 복사)
 tools/make_android_zip.py   "Open만 하면 되는" 독립 Android 프로젝트 zip(dist/ppojjak-android-studio.zip)
 tools/make_store_assets.py  게임 그림 코드로 아이콘·스토어 이미지·스크린샷 재생성
 tools/subset_font.py    나눔스퀘어 네오 서브셋(게임 문구에 새 한글 넣으면 재실행)
-tests/run_tests.py      Playwright 자동 검사 176개 — 수정 후 반드시 실행, 전부 통과해야 함
+tests/run_tests.py      Playwright 자동 검사 188개 — 수정 후 반드시 실행, 전부 통과해야 함
 ```
 
-작업 순서: `web/` 수정 → `python3 tools/build_single.py` → `python3 tests/run_tests.py`(176/176) → 커밋·푸시.
+작업 순서: `web/` 수정 → `python3 tools/build_single.py` → `python3 tests/run_tests.py`(188/188) → 커밋·푸시.
 사용자에게 Android 파일을 줄 때는 `python3 tools/make_android_zip.py`로 만든 zip을 줌(단단·단디 앱 때와 같은 방식: zip 풀고 `ppojjak` 폴더를 **Open**, New Project 아님).
 
 ## 4. 게임 규칙 요약 (현재)
@@ -61,6 +61,7 @@ tests/run_tests.py      Playwright 자동 검사 176개 — 수정 후 반드시
 - **프리미엄 상점(v0.17.5, 사용자가 시안 보고 승인)**: 상점 = 탭 2개. ① 우주선: 쇼케이스(크게) + 카드 6종 `MODELS`(기본·딸기 우유 셔틀★150·냥냥 캡슐★300·별사탕 크루저★300·구름 고래★600·황금 왕관호★800). 모양 자체가 다름(`ART.ships`, ship()에서 1.6배), 충돌 판정은 그대로. 기체 색·불꽃 색은 기본 우주선 전용. ② 순위표 꾸미기: 명패 `PLATES`(별빛·벚꽃·네온·황금 왕실, CSS 애니메이션 `pl-*`), 글씨 `TEXTS`(단색 + 무지개·네온·황금 `tx-*`), 엠블럼 `EMBLEMS`(전용 도트 그림 `ART.embs`), 칭호 `TITLES`, 황금 세트(안 가진 것 합계의 20% 할인). 등급 표시 기본/일반/희귀/전설. 코드 `p=..;t=..;e=..;h=..`. v0.17.3의 배지·줄 꾸미기는 없애고 ★ 돌려줌(`refund175`), 닉네임 색은 글씨 색으로 옮김.
 - **자동 삭제**: `take_nick`이 가끔(5%) `cleanup_old()` 실행 → 30일 지난 순위 기록 · 30일 넘게 안 쓴 닉네임 삭제(방침 5항과 일치).
 - **주간 순위(v0.17.5)**: 자유 비행 = 주간(한국 시간 월요일 0시 새로 시작, `p_day` = 그 주 월요일, 서버 `kst_week_start()`), 오늘의 코스 = 코스가 매일 바뀌므로 하루 그대로.
+- **은하 · 세뇌된 친구들(v0.18, 사용자가 도트 시안 보고 승인)**: 행성 3개 → 3번째 친구 구출 2.6초 뒤 `spawnFriendBoss()` = **배신자 3인조 (세뇌됨)**. 생김새는 기존 모선과 같은 틀(돔만 넓게, 친구 셋이 원래 인형 크기로 앉음, 창살 없음), 세뇌 표시 = 머리 위 작은 안테나 + **빨간 빙글 눈**. 공격 3종 순환: 토토 당근 3연발 조준 / 삐약이 깃털 부채꼴(느림) / 냥냥 털실 2개 벽 튕김. 깨면 `saga`: 깨어남('어…? 우리 뭐 했어?') → 외계인 왕(평소 UFO 외계인 + 작은 왕관·망토, 새 캐릭터) 등장 '귀여운 건 다 압수다~ 메롱' → 친구들 다시 납치 → 다음 은하(`GALAXIES`: 솜사탕·민트 초코·복숭아·오로라·포도 젤리…, 배경 색조 + 운석 속도 은하마다 +4%). 결과 줄에 'N번째 은하'. 대사 톤: 짓궂게(사용자: 순둥순둥 싫음). **'끝까지 가면…?' 같은 예고는 넣지 말 것(사용자 거절)**. saga 중엔 운석 줄 멈춤·무적.
 - **공유**: "카톡으로 자랑하기" → 결과 메시지 + 결과 링크(`#r1.…` 토큰). 앱에서는 결과 화면을 PixelCopy로 캡처해 사진+메시지 공유(메시지는 클립보드에도). 친구가 링크를 열면 기록 카드 + "이 기록 깨기". 링크 주소 = GitHub Pages(`SHARE_URL`).
 
 ## 5. 디자인·글꼴 (사용자 선택)

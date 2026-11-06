@@ -54,6 +54,10 @@ window.__nd = {
   hy: () => ({ masks, lives, doubleLeft, hyperLeft, hyperCharged, doll, refunds: pickups.filter((p) => p.refund).map((p) => p.type), mode }),
   setHyper: (v) => { hyperLeft = v; },
   setModel: (m) => { shipModel = m; },
+  thirdRescue: () => { planetIdx = 2; boss = null; obstacles = []; rescue = { x: playerX, y: playerY - 20, k: 'f_cat', t: 1 }; for (let i = 0; i < 3; i++) { update(STEP); tick++; } return { saga: saga && saga.phase, planetIdx }; },
+  fb: () => ({ kind: boss && boss.kind, hp: boss && boss.hp, saga: saga && saga.phase, planetIdx, lap: lap(), galaxy: galaxy().name, friends: FRIEND_KEYS.filter((k) => runFriends[k]).length, orbs: orbs.map((o) => o.k) }),
+  ffFb: (n) => { for (let i = 0; i < n; i++) { invincible = 999; obstacles = []; update(STEP); tick++; } return window.__nd.fb(); },
+  spawnFB: () => { planetIdx = 2; saga = null; spawnFriendBoss(); },
   skyTest: () => { obstacles = []; primaryGone = 5; tripT = 10; beatPlanFor = planetIdx; beatPlan = [7.5]; beatIdx = -1; invincible = 0; hyperLeft = 0; for (let i = 0; i < 3; i++) { obstacles = []; update(STEP); } return !!swirlOrb || flipOn(); },
   pebbleHit: () => { obstacles = []; invincible = 0; lives = 0; hyperLeft = 0; pebbles = [{ x: playerX + 4, y: playerY - 30, r: 8, vy: 200, vx: 0, spin: 0 }]; for (let i = 0; i < 20; i++) { obstacles = []; update(STEP); tick++; } return { mode, dents: dents.length, squish: !!squishText }; },
   pebbleCount: (sec) => { let seen = 0, made = 0; for (let i = 0; i < sec * 60; i++) { invincible = 999; const n = pebbleNo; update(STEP); tick++; if (pebbleNo > n) made++; } return made; },
@@ -81,8 +85,8 @@ window.__nd = {
   ufoHere: () => { ufoX = playerX; ufoY = playerY; primaryStun = 0; alienPhase = 'patrol'; confusedLeft = 0; masked = 0; },
   rocksNear: () => obstacles.filter((o) => Math.hypot(o.x + 17 - playerX, o.y + 17 - playerY) < 30).length,
   cap: () => capture(),
-  react: (t) => { elapsed = t; obstacles = []; pickups = []; confusedLeft = 999; invincible = 999; row(); const o = obstacles[0];
-    while (o.y + 17 < 0) { update(STEP); elapsed = t; } let m = 0; while (o.y + 17 < playerY) { update(STEP); elapsed = t; m++; } return m / 60; },
+  react: (t) => { elapsed = t; obstacles = []; pickups = []; confusedLeft = 999; invincible = 999; weaponLeft = 0; bullets = []; pebbles = []; row(); const o = obstacles[0]; o.vx = 0;
+    let guard = 0; while (o.y + 17 < 0 && guard++ < 3000) { weaponLeft = 0; bullets = []; update(STEP); elapsed = t; } let m = 0; while (o.y + 17 < playerY && guard++ < 6000) { weaponLeft = 0; bullets = []; update(STEP); elapsed = t; m++; } return m / 60; },
   counts: () => ({ ...counts }), loadout: () => ({ ...runDress }), runFriends: () => ({ ...runFriends }), runTrophy: () => ({ ...runTrophy }),
   clearance: (secs) => { const res = []; for (let i = 0; i < secs * 60; i++) { invincible = 999; confusedLeft = 999; magnetLeft = 0;
     const objs = pickups.map((p) => p); if (weaponDrop) objs.push(weaponDrop);
@@ -790,6 +794,33 @@ async def main():
         check('저장하면 순위표로 돌아오고 새 닉네임 반영(예전 닉네임은 풀림)', await pg.is_visible('#board') and '별사탕왕' in await pg.text_content('#board-nick') and cl and cl[-1][1]['p_nick'] == '별사탕왕')
         check('설명·닉네임·꾸미기 에러 없음', not errs, '; '.join(errs[:3]))
         await ctx.close()
+
+        print('28. 세뇌된 친구들 · 외계인 왕 · 다음 은하')
+        pg, errs = await page(b, {})
+        await pg.click('#start'); await pg.wait_for_timeout(200)
+        r = await pg.evaluate('__nd.thirdRescue()')
+        check('3번째 친구 구출 뒤 바로 다음 행성이 아니라 잠깐 대기', r['saga'] == 'wait' and r['planetIdx'] == 2, str(r))
+        fb = await pg.evaluate('__nd.ffFb(60*3+130)')
+        check('세뇌된 친구들 등장(친구들은 기체 옆에서 사라짐)', fb['kind'] == 'friends' and fb['friends'] == 0, str(fb))
+        check('큰 알림: "야!! 너네 왜 거기 있어?!"', '너네 왜 거기' in (await pg.text_content('#splash') or ''), await pg.text_content('#splash'))
+        check('체력 막대 이름: 배신자 3인조', '배신자 3인조' in await pg.text_content('#boss-name'))
+        kinds = set()
+        for _ in range(4):
+            fb = await pg.evaluate('__nd.ffFb(150)'); kinds |= set(fb['orbs'])
+        check('공격 3종: 당근 · 깃털 · 털실', {'carrot', 'feather', 'yarn'} <= kinds, str(kinds))
+        await pg.evaluate('__nd.shootBoss(400)')
+        fb = await pg.evaluate('__nd.fb()')
+        check('헬멧 깨면 깨어남 장면(보스 사라짐)', fb['kind'] is None and fb['saga'] == 'wake', str(fb))
+        check('큰 알림: "어…? 우리 뭐 했어?"', '우리 뭐 했어' in (await pg.text_content('#splash') or ''))
+        fb = await pg.evaluate('__nd.ffFb(60*5)')
+        check('외계인 왕 등장 → 친구들 다시 데려감', fb['saga'] in ('king', 'leave') and fb['friends'] == 0, str(fb))
+        fb = await pg.evaluate('__nd.ffFb(60*3)')
+        check('다음 은하로: 2번째 은하 · 솜사탕 은하', fb['saga'] is None and fb['lap'] == 1 and fb['galaxy'] == '솜사탕 은하' and fb['planetIdx'] == 3, str(fb))
+        check('은하 카드 알림', '솜사탕 은하' in (await pg.text_content('#splash') or ''))
+        await pg.evaluate('__nd.kill()')
+        check('결과에 "2번째 은하"', '2번째 은하' in await pg.text_content('#result'), await pg.text_content('#result'))
+        check('친구 보스 에러 없음', not errs, '; '.join(errs[:3]))
+        await pg.context.close()
         await b.close()
 
     print(f'\n{sum(results)}/{len(results)} 통과')
